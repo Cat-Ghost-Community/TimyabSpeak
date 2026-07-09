@@ -705,32 +705,53 @@ install_ts6() {
     mkdir -p "${ts_dir}/sql" "${ts_dir}/sql/create_sqlite"
 
     if [[ ! -f "${ts_dir}/${ts_bin}" ]]; then
-      local tmp
+      local tmp extract_dir
       tmp="$(mktemp)"
+      extract_dir="$(mktemp -d)"
+
       _run_spin "Downloading TeamSpeak 6 server" curl -fsSL --retry 3 --retry-delay 5 -o "$tmp" "$TS6_URL" || {
-        rm -f "$tmp"
+        rm -rf "$tmp" "$extract_dir"
         fail "Download failed (404 or network). TS6 beta URL may have changed. Override: TS6_URL=<url> sudo -E bash install.sh"
       }
-      _run_spin "Extracting" tar -xaf "$tmp" -C "$ts_dir" --strip-components=1 || {
-        rm -f "$tmp"
+
+      # Extract to temp dir to inspect structure
+      if ! tar -xaf "$tmp" -C "$extract_dir" 2>/dev/null; then
+        rm -rf "$tmp" "$extract_dir"
         fail "Archive extraction failed. Archive may be corrupted or in unexpected format."
-      }
+      fi
       rm -f "$tmp"
 
-      # Discover binary name — new TS6 packages may rename the executable
-      if [[ -f "${ts_dir}/${ts_bin}" ]]; then
+      # Log structure for debugging
+      echo "[TS6 archive contents]" >> "$INSTALL_LOG"
+      find "$extract_dir" -type f | head -30 >> "$INSTALL_LOG"
+      echo "" >> "$INSTALL_LOG"
+
+      # Flatten: if single top-level dir, move its contents up; else copy directly
+      local top_count content_dir="$extract_dir"
+      top_count=$(find "$extract_dir" -maxdepth 1 -mindepth 1 | wc -l)
+      if [[ "$top_count" -eq 1 ]] && [[ -d "$(find "$extract_dir" -maxdepth 1 -mindepth 1 -type d -print -quit 2>/dev/null)" ]]; then
+        content_dir="$(find "$extract_dir" -maxdepth 1 -mindepth 1 -type d -print -quit)"
+      fi
+
+      # Move everything into ts_dir
+      shopt -s dotglob
+      mv "$content_dir"/* "$ts_dir"/ 2>/dev/null || true
+      shopt -u dotglob
+
+      rm -rf "$extract_dir"
+
+      # Find the server binary
+      local found
+      found=$(find "$ts_dir" -maxdepth 3 -type f -executable \( -name "tsserver" -o -name "teamspeak6-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
+      [[ -z "$found" ]] && found=$(find "$ts_dir" -maxdepth 3 -type f \( -name "tsserver" -o -name "teamspeak6-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
+      if [[ -n "$found" ]]; then
+        chmod +x "$found"
+        [[ "$(basename "$found")" != "$ts_bin" ]] && ln -sf "$(basename "$found")" "${ts_dir}/${ts_bin}"
+        ok "TS6 binary: $(basename "$found")"
+      elif [[ -f "${ts_dir}/${ts_bin}" ]]; then
         chmod +x "${ts_dir}/${ts_bin}"
       else
-        local found
-        found=$(find "$ts_dir" -maxdepth 2 -type f \( -name "tsserver" -o -name "teamspeak6-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
-        if [[ -n "$found" ]]; then
-          chmod +x "$found"
-          # Symlink so systemd units always reference "tsserver"
-          ln -sf "$(basename "$found")" "${ts_dir}/${ts_bin}"
-          ok "TS6 binary: ${ts_bin} -> $(basename "$found")"
-        else
-          fail "TS6 binary not found after extraction. Archive structure may have changed."
-        fi
+        fail "TS6 server binary not found after extraction. See log for archive contents."
       fi
     fi
 
