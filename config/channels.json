@@ -1,0 +1,287 @@
+{
+  "categories": [
+    {
+      "name": "📢 ─── WELCOME ─────────────────────────────",
+      "sort_order": 0,
+      "channels": [
+        {
+          "name": "📋 Info & Rules",
+          "type": "text",
+          "description": "Server rules and information. Please read before participating in the community.",
+          "read_only": true,
+          "sort_order": 0
+        },
+        {
+          "name": "📢 Announcements",
+          "type": "text",
+          "description": "Official server announcements from the staff team.",
+          "read_only": true,
+          "sort_order": 1
+        },
+        {
+          "name": "🆕 Changelog",
+          "type": "text",
+          "description": "Latest server updates, new features, and bot changes.",
+          "read_only": true,
+          "sort_order": 2
+        },
+        {
+          "name": "💬 General Chat",
+          "type": "text",
+          "description": "General text chat — talk with the community, share clips, ask questions.",
+          "sort_order": 3
+        },
+        {
+          "name": "🤖 Bot Commands",
+          "type": "text",
+          "description": "Type your bot commands here. /help to see all available commands.",
+          "sort_order": 4
+        }
+      ]
+    },
+    {
+      "name": "🎮 ─── GAME ZONE ──────────────────────────",
+      "sort_order": 1,
+      "channels": [
+        {
+          "name": "🗣️ Game Lobby",
+          "type": "voice",
+          "description": "Find teammates, discuss games, and plan sessions here.",
+          "sort_order": 0
+        },
+        {
+          "name": "──────────────────────",
+          "type": "spacer",
+          "sort_order": 1
+        },
+        {
+          "name": "🔫 FPS Arena",
+          "type": "category",
+          "description": "First-person shooter games",
+          "sort_order": 2,
+          "channels": [
+            {
+              "name": "CS2 / Valorant / Apex",
+              "type": "voice",
+              "description": "Tactical shooters and battle royale.",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "name": "⚔️ RPG Realm",
+          "type": "category",
+          "description": "Role-playing games",
+          "sort_order": 3,
+          "channels": [
+            {
+              "name": "WoW / D4 / Elden Ring",
+              "type": "voice",
+              "description": "MMORPGs and action RPGs.",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "name": "🏎️ Racing Circuit",
+          "type": "category",
+          "description": "Racing and simulation games",
+          "sort_order": 4,
+          "channels": [
+            {
+              "name": "Forza / AC / NFS",
+              "type": "voice",
+              "description": "Sim racing and arcade racers.",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "name": "♟️ Strategy Command",
+          "type": "category",
+          "description": "Strategy and MOBA games",
+          "sort_order": 5,
+          "channels": [
+            {
+              "name": "LoL / Dota / SC2",
+              "type": "voice",
+              "description": "MOBAs and real-time strategy.",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "name": "🎲 Party Hub",
+          "type": "category",
+          "description": "Party and casual games",
+          "sort_order": 6,
+          "channels": [
+            {
+              "name": "Among Us / Jackbox",
+              "type": "voice",
+              "description": "Party games and casual fun.",
+              "sort_order": 0
+            }
+          ]
+        },
+        {
+          "name": "──────────────────────",
+          "type": "spacer",
+          "sort_order": 7
+        },
+        {
+          "name": "⏳ Time Window",
+          "type": "category",
+          "description": "All temporary voice channels appear here. Join a create channel in any game section to spawn your own room.",
+          "sort_order": 8,
+          "channels": [
+            {
+              "name": "🎫 ➕ Create Channel",
+              "type": "voice",
+              "description": "Join this channel to create your own temporary voice room! Use /help for commands.",
+              "sort_order": 0,
+              "is_trigger": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🎵 ─── SOCIAL ────────────────────────────",
+      "sort_order": 2,
+      "channels": [
+        {
+          "name": "🎤 Main Lounge",
+          "type": "voice",
+          "description": "General voice chat — all welcome! Hang out and talk with the community.",
+          "sort_order": 0
+        },
+        {
+          "name": "🎧 Music & Chill",
+          "type": "voice",
+          "description": "Background music, relax and chill. No game audio please.",
+          "sort_order": 1
+        },
+        {
+          "name": "🤫 Study & Focus",
+          "type": "voice",
+          "description": "Quiet zone — minimal talking. For studying, working, or focusing.",
+          "sort_order": 2
+        },
+        {
+          "name": "💤 AFK Zone",
+          "type": "voice",
+          "description": "Auto-moved here after 15 minutes of inactivity. Come back anytime!",
+          "sort_order": 3
+        }
+      ]
+    },
+    {
+      "name": "🆘 ─── SUPPORT ───────────────────────────",
+      "sort_order": 3,
+      "channels": [
+        {
+          "name": "📖 FAQ & Knowledge Base",
+          "type": "text",
+          "description": "Check here before opening a ticket — your question might already be answered!",
+          "read_only": true,
+          "sort_order": 0
+        },
+        {
+          "name": "🎫 Create Ticket",
+          "type": "text",
+          "description": "Type /new to open a support ticket. Staff will assist you as soon as possible.",
+          "sort_order": 1
+        },
+        {
+          "name": "📋 Active Tickets",
+          "type": "category",
+          "description": "Ongoing support tickets — only ticket participants and staff can see these.",
+          "sort_order": 2,
+          "required_join_power": 50
+        },
+        {
+          "name": "🔒 Archived Tickets",
+          "type": "category",
+          "description": "Closed and resolved tickets — staff only, read-only access.",
+          "sort_order": 3,
+          "required_join_power": 100
+        }
+      ]
+    },
+    {
+      "name": "📊 ─── STATISTICS ─────────────────────────",
+      "sort_order": 4,
+      "channels": [
+        {
+          "name": "🏆 Leaderboard",
+          "type": "text",
+          "description": "Top 10 XP leaderboard — auto-updated by the level bot.",
+          "read_only": true,
+          "sort_order": 0
+        },
+        {
+          "name": "📈 My Stats",
+          "type": "text",
+          "description": "Type /stats to see your XP, level, voice time, and achievements.",
+          "read_only": true,
+          "sort_order": 1
+        },
+        {
+          "name": "🎯 Weekly Challenge",
+          "type": "text",
+          "description": "Current weekly voice activity challenge details and winner announcements.",
+          "read_only": true,
+          "sort_order": 2
+        },
+        {
+          "name": "📊 Server Status",
+          "type": "text",
+          "description": "Live server status — online players, uptime, and resource usage.",
+          "read_only": true,
+          "sort_order": 3
+        }
+      ]
+    },
+    {
+      "name": "🔒 ─── STAFF ─────────────────────────────",
+      "sort_order": 5,
+      "required_join_power": 100,
+      "channels": [
+        {
+          "name": "👑 Admin Office",
+          "type": "voice",
+          "description": "Admin private voice channel.",
+          "sort_order": 0,
+          "required_join_power": 150
+        },
+        {
+          "name": "🛡️ Mod Room",
+          "type": "voice",
+          "description": "Moderator discussion channel.",
+          "sort_order": 1,
+          "required_join_power": 100
+        },
+        {
+          "name": "💼 Staff Chat",
+          "type": "text",
+          "description": "Staff internal communication.",
+          "sort_order": 2
+        },
+        {
+          "name": "⚙️ Server Control",
+          "type": "text",
+          "description": "Bot configuration and server management. Staff only.",
+          "sort_order": 3
+        },
+        {
+          "name": "📝 Staff Logs",
+          "type": "text",
+          "description": "Automated audit log — bans, kicks, ticket actions, and permission changes.",
+          "read_only": true,
+          "sort_order": 4
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+[Unit]
+Description=TeamTP Temp Channel Bot
+After=teamspeak6.service
+Wants=teamspeak6.service
+
+[Service]
+Type=simple
+User=teamtp
+Group=teamtp
+WorkingDirectory=/opt/teamtp/bots/temp-channel-bot
+ExecStart=/usr/bin/node /opt/teamtp/bots/temp-channel-bot/index.js
+EnvironmentFile=/opt/teamtp/.env
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=16384
+
+[Install]
+WantedBy=multi-user.target

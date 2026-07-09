@@ -1,0 +1,17 @@
+[Unit]
+Description=TeamTP Web Panel
+After=teamspeak6.service
+Wants=teamspeak6.service
+
+[Service]
+Type=simple
+User=teamtp
+Group=teamtp
+WorkingDirectory=/opt/teamtp/panel
+ExecStart=/usr/bin/node /opt/teamtp/panel/server.js
+EnvironmentFile=/opt/teamtp/.env
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

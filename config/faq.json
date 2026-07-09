@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "keywords": "connection,connect,cant,join,cannot,error,timeout",
+    "question": "Can't connect to the server",
+    "answer": "1. Check server status: teamtp status  (or /status in discord if integrated)\n2. Ensure UDP port 9987 is open in your firewall\n3. Try restarting your TeamSpeak 6 client\n4. If problem persists, open a support ticket with /new",
+    "category": "technical"
+  },
+  {
+    "id": 2,
+    "keywords": "password,forgot,reset,login,account",
+    "question": "Forgot my password / can't log in",
+    "answer": "Use the 'Forgot Password' option in the TS6 client login screen. If that doesn't help, open a ticket with /new and a staff member will assist you with a password reset.",
+    "category": "account"
+  },
+  {
+    "id": 3,
+    "keywords": "role,rank,xp,level,levelup,progress,points",
+    "question": "How do XP and roles work?",
+    "answer": "Earn XP by being active in voice channels:\n• 10 XP per 10 minutes in voice\n• 20 XP bonus per hour\n• 15 XP daily first login\n• 25 XP for 3+ day streak\n• 50 XP for 7+ day streak\n• Milestones: 100 XP = Member, 500 XP = Veteran, 1000 XP = Elite\n\nCheck your progress with /level or /stats.",
+    "category": "features"
+  },
+  {
+    "id": 4,
+    "keywords": "channel,temp,create,room,own,private,voice",
+    "question": "How to create my own temporary voice channel",
+    "answer": "Join any '🎫 ➕ Create Channel' in a game subcategory. Your personal room appears in the '⏳ Time Window' section instantly.\n\nUse these commands in your channel:\n• /name <text> — Rename your channel\n• /lock — Only you can join\n• /limit <N> — Set max users\n• /password <pw> — Lock with password\n• /private — Invite-only mode\n• /invite @user — Invite someone\n• /delete — Delete your channel",
+    "category": "features"
+  },
+  {
+    "id": 5,
+    "keywords": "command,help,bot,how,list,available",
+    "question": "What commands are available?",
+    "answer": "General commands:\n  /new [subject]   — Open a support ticket\n  /level           — Your XP and rank\n  /stats           — Your voice statistics\n  /leaderboard     — Top 10 XP leaders\n  /faq [query]     — Search FAQ\n\nTemp channel commands (in your own room):\n  /name, /lock, /unlock, /limit, /password,\n  /public, /private, /invite, /kick,\n  /bitrate, /desc, /give, /claim,\n  /hide, /show, /timeout, /permanent,\n  /delete, /settings",
+    "category": "features"
+  },
+  {
+    "id": 6,
+    "keywords": "ticket,support,help,new,create",
+    "question": "How to get help from staff",
+    "answer": "Type /new [your issue] in the '🎫 Create Ticket' text channel. A staff member will respond in your private ticket channel. You can also check /faq for common questions.",
+    "category": "support"
+  },
+  {
+    "id": 7,
+    "keywords": "rules,behavior,ban,kick,moderation",
+    "question": "Server rules and expected behavior",
+    "answer": "1. Be respectful to all members\n2. No hate speech, harassment, or discrimination\n3. No spam or excessive advertising\n4. Follow staff instructions\n5. Use appropriate channel for content\n6. No cheating, hacking, or exploit discussion\n7. Have fun and be welcoming to new members!",
+    "category": "general"
+  },
+  {
+    "id": 8,
+    "keywords": "music,bot,play,song,audio",
+    "question": "Is there a music bot?",
+    "answer": "Not yet! Music bot support is planned for a future update. For now, you can use the '🎧 Music & Chill' voice channel to listen together.",
+    "category": "features"
+  },
+  {
+    "id": 9,
+    "keywords": "file,upload,document,share",
+    "question": "File upload permissions",
+    "answer": "File upload is restricted by role rank:\n• Guest: no upload/download\n• Member: 100MB upload / 250MB download\n• Veteran: 250MB / 500MB\n• Elite: 500MB / 1GB\n• Staff: unlimited\nReach higher roles through voice activity XP!",
+    "category": "features"
+  },
+  {
+    "id": 10,
+    "keywords": "afk,idle,moved,away",
+    "question": "Why was I moved to AFK Zone?",
+    "answer": "You were auto-moved after 15 minutes of inactivity (no voice activity or chat). Join any voice channel to come back. This keeps the server tidy!",
+    "category": "features"
+  }
+]

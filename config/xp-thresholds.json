@@ -1,0 +1,33 @@
+{
+  "levels": [
+    { "level": 0,  "role": "Guest",   "min_xp": 0,    "icon": "⚪" },
+    { "level": 1,  "role": "Member",  "min_xp": 100,  "icon": "🔵" },
+    { "level": 2,  "role": "Member",  "min_xp": 200,  "icon": "🔵" },
+    { "level": 3,  "role": "Member",  "min_xp": 350,  "icon": "🔵" },
+    { "level": 4,  "role": "Veteran", "min_xp": 500,  "icon": "🟣" },
+    { "level": 5,  "role": "Veteran", "min_xp": 650,  "icon": "🟣" },
+    { "level": 6,  "role": "Veteran", "min_xp": 800,  "icon": "🟣" },
+    { "level": 7,  "role": "Elite",   "min_xp": 1000, "icon": "💎" }
+  ],
+  "xp_sources": [
+    { "action": "voice_10min",        "xp": 10,  "cooldown_seconds": 600,     "description": "Every 10 minutes in voice" },
+    { "action": "voice_hourly_bonus", "xp": 20,  "cooldown_seconds": 3600,    "description": "One-hour voice milestone bonus" },
+    { "action": "first_join_daily",   "xp": 15,  "cooldown_daily": true,      "description": "First login of the day" },
+    { "action": "streak_3day",        "xp": 25,  "cooldown_daily": true,      "description": "3+ day login streak" },
+    { "action": "streak_7day",        "xp": 50,  "cooldown_daily": true,      "description": "7+ day login streak" },
+    { "action": "create_channel",     "xp": 10,  "cooldown_seconds": 3600,    "description": "Created a temporary channel" },
+    { "action": "invite_accepted",    "xp": 50,  "cooldown_seconds": 86400,   "description": "Invited friend joined the server" },
+    { "action": "weekly_challenge",   "xp": 100, "cooldown_weekly": true,     "description": "Won the weekly voice challenge" }
+  ],
+  "achievements": [
+    { "id": "first_words",      "name": "First Words",      "description": "Join any voice channel",                    "xp": 10  },
+    { "id": "social_butterfly", "name": "Social Butterfly",  "description": "Visit 5 different channels",                "xp": 25  },
+    { "id": "home_owner",       "name": "Home Owner",        "description": "Create your first temporary channel",       "xp": 30  },
+    { "id": "night_owl",        "name": "Night Owl",         "description": "Stay in voice for 2+ hours in one session", "xp": 50  },
+    { "id": "comeback_kid",     "name": "Comeback Kid",      "description": "7-day login streak",                       "xp": 100 },
+    { "id": "veteran",          "name": "Veteran",           "description": "Reach Veteran role",                        "xp": 200 },
+    { "id": "party_starter",    "name": "Party Starter",     "description": "Your temp channel had 5+ users at once",    "xp": 50  },
+    { "id": "helper",           "name": "Helper",            "description": "Create 5 support tickets",                  "xp": 30  },
+    { "id": "voice_champion",   "name": "Voice Champion",    "description": "Accumulate 100 hours in voice",             "xp": 150 }
+  ]
+}

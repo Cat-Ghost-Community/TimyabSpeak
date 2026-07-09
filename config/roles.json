@@ -1,0 +1,105 @@
+[
+  {
+    "id": 1,
+    "name": "Guest",
+    "icon": "⚪",
+    "color": "#95A5A6",
+    "hex": "95A5A6",
+    "xp_required": 0,
+    "description": "Default role for all new users. Restricted access.",
+    "sort_order": 0,
+    "is_default": true
+  },
+  {
+    "id": 2,
+    "name": "Member",
+    "icon": "🔵",
+    "color": "#3498DB",
+    "hex": "3498DB",
+    "xp_required": 100,
+    "description": "Trusted community member — earned 100 XP through voice activity.",
+    "sort_order": 10,
+    "is_default": false
+  },
+  {
+    "id": 3,
+    "name": "Veteran",
+    "icon": "🟣",
+    "color": "#9B59B6",
+    "hex": "9B59B6",
+    "xp_required": 500,
+    "description": "Seasoned member — 500+ XP earned. Shows dedication to the community.",
+    "sort_order": 20,
+    "is_default": false
+  },
+  {
+    "id": 4,
+    "name": "Elite",
+    "icon": "💎",
+    "color": "#00BFFF",
+    "hex": "00BFFF",
+    "xp_required": 1000,
+    "description": "Voice activity champion — over 1000 XP. Priority speaker privileges granted.",
+    "sort_order": 30,
+    "is_default": false
+  },
+  {
+    "id": 5,
+    "name": "Support",
+    "icon": "🟢",
+    "color": "#2ECC71",
+    "hex": "2ECC71",
+    "xp_required": 0,
+    "description": "Handles support tickets and helps users. Can read all channels but cannot modify them.",
+    "sort_order": 40,
+    "is_default": false,
+    "assignable_by_role": ["Admin", "Owner"]
+  },
+  {
+    "id": 6,
+    "name": "Moderator",
+    "icon": "🟡",
+    "color": "#FFD700",
+    "hex": "FFD700",
+    "xp_required": 0,
+    "description": "Manages users and channels. Can kick, ban, move users. Creates temporary channels.",
+    "sort_order": 50,
+    "is_default": false,
+    "assignable_by_role": ["Admin", "Owner"]
+  },
+  {
+    "id": 7,
+    "name": "Admin",
+    "icon": "🔶",
+    "color": "#FF7F00",
+    "hex": "FF7F00",
+    "xp_required": 0,
+    "description": "Full server control — manage groups, permissions, server settings. Cannot create snapshots.",
+    "sort_order": 60,
+    "is_default": false,
+    "assignable_by_role": ["Owner"]
+  },
+  {
+    "id": 8,
+    "name": "Owner",
+    "icon": "👑",
+    "color": "#E74C3C",
+    "hex": "E74C3C",
+    "xp_required": 0,
+    "description": "Server founder with absolute power. Can create and deploy snapshots, modify any permission.",
+    "sort_order": 70,
+    "is_default": false,
+    "assignable_by_role": []
+  },
+  {
+    "id": 9,
+    "name": "Bot",
+    "icon": "🔘",
+    "color": "#607D8B",
+    "hex": "607D8B",
+    "xp_required": 0,
+    "description": "Bot accounts — server query access only, no voice, no talk.",
+    "sort_order": 5,
+    "is_default": false
+  }
+]

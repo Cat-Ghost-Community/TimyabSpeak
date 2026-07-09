@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamTP — TS6 Server Panel</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="login-screen" class="screen">
+    <div class="login-card">
+      <div class="login-icon">🎮</div>
+      <h1>TeamTP</h1>
+      <p class="subtitle">TeamSpeak 6 Server Manager</p>
+      <form id="login-form">
+        <input type="text" id="login-user" placeholder="Username" required autofocus>
+        <input type="password" id="login-pass" placeholder="Password" required>
+        <button type="submit">Sign In</button>
+        <p class="error" id="login-error"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="main-screen" class="screen hidden">
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-logo">🎮</span>
+        <span class="sidebar-title">TeamTP</span>
+      </div>
+      <nav>
+        <a href="#" data-page="dashboard" class="active">📊 Dashboard</a>
+        <a href="#" data-page="tickets">🆘 Tickets</a>
+        <a href="#" data-page="users">👥 Users</a>
+        <a href="#" data-page="channels">🎧 Channels</a>
+        <a href="#" data-page="roles">🏷️ Roles</a>
+        <a href="#" data-page="bots">🤖 Bots</a>
+        <a href="#" data-page="settings">⚙️ Settings</a>
+        <a href="#" data-page="backup">📦 Backup</a>
+        <a href="#" data-page="logs">📝 Logs</a>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="logout-btn">Sign Out</button>
+      </div>
+    </aside>
+
+    <main id="content">
+      <div id="page-dashboard" class="page active"></div>
+      <div id="page-tickets" class="page"></div>
+      <div id="page-users" class="page"></div>
+      <div id="page-channels" class="page"></div>
+      <div id="page-roles" class="page"></div>
+      <div id="page-bots" class="page"></div>
+      <div id="page-settings" class="page"></div>
+      <div id="page-backup" class="page"></div>
+      <div id="page-logs" class="page"></div>
+    </main>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
