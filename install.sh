@@ -474,25 +474,21 @@ deploy_files() {
     return 0
   fi
 
-  if [[ -n "$TEAMTP_REPO" ]]; then
-    if [[ -d "${TEAMTP_DIR}/.git" ]]; then
-      info "Pulling latest from ${TEAMTP_REPO}..."
-      (cd "$TEAMTP_DIR" && git pull) >> "$INSTALL_LOG" 2>&1 || warn "git pull failed"
-    else
-      rm -rf "$TEAMTP_DIR"
-      git clone "$TEAMTP_REPO" "$TEAMTP_DIR" >> "$INSTALL_LOG" 2>&1 || {
-        warn "git clone failed. For private repos, include a PAT or set up a deploy key."
-        fail "Cannot deploy files."
-      }
-    fi
-  else
-    local src="${SRC_DIR}"
-    [[ ! -d "$src" ]] && src="$PWD"
+  local repo="${TEAMTP_REPO:-https://github.com/Cat-Ghost-Community/TimyabSpeak.git}"
+  local src="${SRC_DIR}"
+  local has_local_source=false
 
-    # Verify source has expected structure
-    if [[ ! -f "${src}/install.sh" ]] && [[ ! -f "${src}/panel/server.js" ]]; then
-      fail "Source directory ${src} does not appear to contain TimyabSpeak files."
-    fi
+  # Check if we have local source files (e.g. running from a cloned repo)
+  if [[ -d "$src" ]] && { [[ -f "${src}/install.sh" ]] || [[ -f "${src}/panel/server.js" ]]; }; then
+    has_local_source=true
+  elif [[ -d "$PWD" ]] && { [[ -f "${PWD}/install.sh" ]] || [[ -f "${PWD}/panel/server.js" ]]; }; then
+    src="$PWD"
+    has_local_source=true
+  fi
+
+  if $has_local_source; then
+    # ── Local copy ──
+    info "Copying from ${src}..."
 
     mkdir -p "$TEAMTP_DIR"
 
@@ -508,23 +504,34 @@ deploy_files() {
       fi
     done
 
-    # Copy individual files
     for f in .env.example install.sh; do
       [[ -f "${src}/${f}" ]] && cp "${src}/${f}" "${TEAMTP_DIR}/${f}"
     done
 
-    # Make scripts executable
     find "$TEAMTP_DIR" -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+  else
+    # ── No local source: clone from repo (handles curl | bash pipe install) ──
+    info "No local files found — cloning from repository..."
+    if [[ -d "${TEAMTP_DIR}/.git" ]]; then
+      info "Pulling latest..."
+      (cd "$TEAMTP_DIR" && git pull) >> "$INSTALL_LOG" 2>&1 || warn "git pull failed"
+    else
+      rm -rf "$TEAMTP_DIR"
+      git clone "$repo" "$TEAMTP_DIR" >> "$INSTALL_LOG" 2>&1 || {
+        warn "git clone failed. For private repos, set TEAMTP_REPO with a PAT or deploy key."
+        fail "Cannot deploy files. Try: TEAMTP_REPO=https://<token>@github.com/User/Repo.git sudo -E bash install.sh"
+      }
+    fi
   fi
 
   chown -R teamtp:teamtp "$TEAMTP_DIR" 2>/dev/null || true
 
   # Verify key files exist
   if [[ ! -f "${TEAMTP_DIR}/panel/server.js" ]]; then
-    fail "Deployment verification failed: panel/server.js not found"
+    fail "Deployment verification failed: panel/server.js not found in ${TEAMTP_DIR}"
   fi
   if [[ ! -f "${TEAMTP_DIR}/shared/ts6-rest.js" ]]; then
-    fail "Deployment verification failed: shared/ts6-rest.js not found"
+    fail "Deployment verification failed: shared/ts6-rest.js not found in ${TEAMTP_DIR}"
   fi
 
   ok "Files deployed to ${TEAMTP_DIR}"
