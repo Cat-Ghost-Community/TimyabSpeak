@@ -725,11 +725,11 @@ find_port() {
   for off in $(seq 0 "$max"); do
     p=$((base + off))
     if [[ "$proto" == "udp" ]]; then
-      if ! ss -Huln sport = ":${p}" 2>/dev/null | grep -q .; then
+      if [[ -z "$(ss -Huln sport = ":${p}" 2>/dev/null)" ]]; then
         echo "$p"; return 0
       fi
     else
-      if ! ss -Htln sport = ":${p}" 2>/dev/null | grep -q .; then
+      if [[ -z "$(ss -Htln sport = ":${p}" 2>/dev/null)" ]]; then
         echo "$p"; return 0
       fi
     fi
@@ -770,7 +770,7 @@ install_ts6() {
 
       # Log structure for debugging
       echo "[TS6 archive contents]" >> "$INSTALL_LOG"
-      find "$extract_dir" -type f | head -30 >> "$INSTALL_LOG"
+      find "$extract_dir" -type f 2>/dev/null | head -30 >> "$INSTALL_LOG" || true
       echo "" >> "$INSTALL_LOG"
 
       # Flatten: if single top-level dir, move its contents up; else copy directly
@@ -876,7 +876,7 @@ setup_systemd() {
 
   # Wait for TS6 HTTP query port
   local waited=0 max_wait=60
-  while ! ss -Htln sport = ":${PORT_HTTP_QUERY}" 2>/dev/null | grep -q .; do
+  while [[ -z "$(ss -Htln sport = ":${PORT_HTTP_QUERY}" 2>/dev/null)" ]]; do
     sleep 2
     waited=$((waited + 2))
     if [[ $waited -ge $max_wait ]]; then
@@ -885,7 +885,7 @@ setup_systemd() {
     fi
   done
 
-  if ss -Htln sport = ":${PORT_HTTP_QUERY}" 2>/dev/null | grep -q .; then
+  if [[ -n "$(ss -Htln sport = ":${PORT_HTTP_QUERY}" 2>/dev/null)" ]]; then
     ok "TeamSpeak 6 is running"
     # Capture privilege key
     PRIVILEGE_KEY=$(journalctl -u teamspeak6 --no-pager -n 150 2>/dev/null | grep -oP "token=\K\S+" | head -1 || true)
