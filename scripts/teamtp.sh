@@ -158,7 +158,7 @@ cmd_panel() {
   printf "  %-14s http://localhost:%s\n" "Local:" "${PORT_PANEL:-3000}"
   printf "  %-14s %s://%s\n" "External:" "$proto" "$ip"
   if [[ -n "${WIZARD_DOMAIN:-}" ]]; then
-    printf "  %-14s %s://panel.%s\n" "Domain:" "$proto" "$WIZARD_DOMAIN"
+    printf "  %-14s %s://%s\n" "Domain:" "$proto" "$WIZARD_DOMAIN"
   fi
 
   if [[ "${WIZARD_SSL:-}" == "self-signed" ]]; then

@@ -430,10 +430,10 @@ wizard() {
       printf "  Max slots [64]: " >/dev/tty
       read -r ans </dev/tty || { ans="64"; break; }
       WIZARD_SLOTS="${ans:-64}"
-      if [[ "$WIZARD_SLOTS" =~ ^[0-9]+$ ]] && [[ "$WIZARD_SLOTS" -ge 1 ]]; then
+      if [[ "$WIZARD_SLOTS" =~ ^[0-9]+$ ]] && [[ "$WIZARD_SLOTS" -ge 10 ]] && [[ "$WIZARD_SLOTS" -le 1050 ]]; then
         break
       fi
-      printf "  ${YELLOW}%s${NC} Enter a number (1 or higher).\n" "${WRN}"
+      printf "  ${YELLOW}%s${NC} Enter a number between 10 and 1050.\n" "${WRN}"
     done
 
     # Welcome
@@ -452,8 +452,8 @@ wizard() {
   if [[ ${#WIZARD_ADMIN_PASS} -lt 8 ]]; then
     fail "Admin password must be at least 8 characters"
   fi
-  if [[ ! "$WIZARD_SLOTS" =~ ^[0-9]+$ ]] || [[ "$WIZARD_SLOTS" -lt 1 ]]; then
-    fail "Slots must be a positive number"
+  if [[ ! "$WIZARD_SLOTS" =~ ^[0-9]+$ ]] || [[ "$WIZARD_SLOTS" -lt 10 ]] || [[ "$WIZARD_SLOTS" -gt 1050 ]]; then
+    fail "Slots must be a number between 10 and 1050"
   fi
 }
 
@@ -1071,7 +1071,7 @@ cmd_panel() {
   echo "  Local:     http://localhost:${PORT_PANEL:-3000}"
   echo "  External:  ${proto}://${ip}"
   if [[ -n "${WIZARD_DOMAIN:-}" ]]; then
-    echo "  Domain:    ${proto}://panel.${WIZARD_DOMAIN}"
+    echo "  Domain:    ${proto}://${WIZARD_DOMAIN}"
   fi
 }
 
@@ -1248,7 +1248,7 @@ setup_nginx() {
   local domain="${WIZARD_DOMAIN:-}"
   local server_names
   if [[ -n "$domain" ]]; then
-    server_names="${domain} panel.${domain}"
+    server_names="${domain}"
   else
     server_names="_"
   fi
@@ -1293,7 +1293,7 @@ NGX
         warn "Let's Encrypt requires a domain name — skipping"
       else
         _run_spin "Installing certbot" apt-get install -y -qq certbot python3-certbot-nginx 2>/dev/null || warn "certbot install failed"
-        if certbot --nginx -d "$domain" -d "panel.${domain}" --non-interactive --agree-tos --email "admin@${domain}" --redirect 2>/dev/null; then
+        if certbot --nginx -d "$domain" --non-interactive --agree-tos --email "admin@${domain}" --redirect 2>/dev/null; then
           ok "Let's Encrypt SSL configured for ${domain}"
         else
           warn "Let's Encrypt failed. Check that DNS points to this server."
@@ -1444,9 +1444,9 @@ print_summary() {
   local proto="http"
   [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
 
-  local panel_url_domain=""
+  local panel_url=""
   if [[ -n "${WIZARD_DOMAIN:-}" ]]; then
-    panel_url_domain="${proto}://panel.${WIZARD_DOMAIN}"
+    panel_url="${proto}://${WIZARD_DOMAIN}"
   fi
 
   echo ""
@@ -1455,8 +1455,8 @@ print_summary() {
   echo -e "  ${BOLD}${GREEN}║${NC}  ${BOLD}Installation Complete!${NC}                                  ${BOLD}${GREEN}║${NC}"
   echo -e "  ${BOLD}${GREEN}║${NC}                                                          ${BOLD}${GREEN}║${NC}"
   printf "  ${BOLD}${GREEN}║${NC}  %-18s ${BOLD}%-35s${NC} ${BOLD}${GREEN}║${NC}\n" "Voice Server" "${ip}:${PORT_VOICE}"
-  if [[ -n "$panel_url_domain" ]]; then
-    printf "  ${BOLD}${GREEN}║${NC}  %-18s ${BOLD}%-35s${NC} ${BOLD}${GREEN}║${NC}\n" "Panel" "$panel_url_domain"
+  if [[ -n "$panel_url" ]]; then
+    printf "  ${BOLD}${GREEN}║${NC}  %-18s ${BOLD}%-35s${NC} ${BOLD}${GREEN}║${NC}\n" "Panel" "$panel_url"
   fi
   printf "  ${BOLD}${GREEN}║${NC}  %-18s ${BOLD}%-35s${NC} ${BOLD}${GREEN}║${NC}\n" "Panel (local)" "http://localhost:${PORT_PANEL}"
   printf "  ${BOLD}${GREEN}║${NC}  %-18s %-35s ${BOLD}${GREEN}║${NC}\n" "Admin User" "$WIZARD_ADMIN_USER"
