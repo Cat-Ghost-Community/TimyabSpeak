@@ -4,6 +4,8 @@
 set -euo pipefail
 shopt -s inherit_errexit 2>/dev/null || true
 
+DEBUG="${DEBUG:-false}"
+RESUME="${RESUME:-false}"
 INSTALL_VERSION="2.0.0"
 INSTALL_LOG="/var/log/teamtp-install.log"
 TEAMTP_DIR="/opt/teamtp"
@@ -14,6 +16,12 @@ SRC_DIR="${SRC_DIR:-$PWD}"
 DRY_RUN="${DRY_RUN:-false}"
 FORCE="${FORCE:-false}"
 NON_INTERACTIVE="${NON_INTERACTIVE:-false}"
+
+# ─── Phase tracking ───
+PHASE_TOTAL=14
+_CURRENT_PHASE=0
+_last_cmd=""
+_last_ln=""
 
 # ─── Colors ───
 if [[ -t 1 ]]; then
@@ -105,45 +113,80 @@ _cmd() {
   "$@"
 }
 
+# ─── Phase helpers ───
+_phase_enter() { _CURRENT_PHASE="$1"; }
+_phase_done()  { touch "${TEAMTP_DIR}/.phase-${_CURRENT_PHASE}" 2>/dev/null || true; }
+_phase_skip()  { [[ -f "${TEAMTP_DIR}/.phase-${1}" ]]; }
+
 # ─── Cleanup on failure ───
 cleanup_on_failure() {
-  _log "Cleanup: installation failed, removing partial state"
-  for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
-    systemctl stop "$s" 2>/dev/null || true
-    systemctl disable "$s" 2>/dev/null || true
+  _log "Cleanup: phase ${_CURRENT_PHASE} failed"
+  case "${_CURRENT_PHASE}" in
+    1|2) ;;  # preflight/wizard: nothing to clean
+    3) ;;    # deps: leave packages installed
+    4) userdel tsserver 2>/dev/null || true; userdel teamtp 2>/dev/null || true ;;
+    5|6) rm -rf "$TEAMTP_DIR" ;;
+    7) rm -f "${TEAMTP_DIR}/.env" ;;
+    8) rm -rf "${TEAMTP_DIR}/server/teamspeak6" ;;
+    9)
+      for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+        systemctl stop "$s" 2>/dev/null || true
+        systemctl disable "$s" 2>/dev/null || true
+      done
+      rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
+      systemctl daemon-reload 2>/dev/null || true
+      ;;
+    10) rm -f /usr/local/bin/teamtp ;;
+    11)
+      rm -f /etc/nginx/sites-available/teamtp /etc/nginx/sites-available/teamtp-ssl
+      rm -f /etc/nginx/sites-enabled/teamtp /etc/nginx/sites-enabled/teamtp-ssl
+      nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null || true
+      ;;
+    12|13|14) ;; # firewall/logrotate/summary: nothing to clean
+    *)
+      for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+        systemctl stop "$s" 2>/dev/null || true
+        systemctl disable "$s" 2>/dev/null || true
+      done
+      rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
+      systemctl daemon-reload 2>/dev/null || true
+      rm -f /etc/nginx/sites-available/teamtp /etc/nginx/sites-available/teamtp-ssl
+      rm -f /etc/nginx/sites-enabled/teamtp /etc/nginx/sites-enabled/teamtp-ssl
+      rm -rf "$TEAMTP_DIR" /usr/local/bin/teamtp
+      userdel tsserver 2>/dev/null || true; userdel teamtp 2>/dev/null || true
+      ;;
+  esac
+  for p in $(seq "${_CURRENT_PHASE}" "$PHASE_TOTAL" 2>/dev/null); do
+    rm -f "${TEAMTP_DIR}/.phase-${p}" 2>/dev/null || true
   done
-  rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
-  systemctl daemon-reload 2>/dev/null || true
-  rm -f /etc/nginx/sites-available/teamtp /etc/nginx/sites-available/teamtp-ssl
-  rm -f /etc/nginx/sites-enabled/teamtp /etc/nginx/sites-enabled/teamtp-ssl
-  rm -rf "$TEAMTP_DIR"
-  rm -f /usr/local/bin/teamtp
-  userdel tsserver 2>/dev/null || true
-  userdel teamtp 2>/dev/null || true
   echo ""
-  warn "Partial installation cleaned up. Fix the issue above and re-run."
+  warn "Phase ${_CURRENT_PHASE} failed. Fix the issue above and re-run with --resume to skip completed phases."
 }
 
-# ─── Trap handler ───
-_trap_handler() {
-  echo ""
-  warn "Installation interrupted (signal $1)"
-  echo ""
-  local ans
-  printf "  Clean up partial installation? [Y/n]: " >/dev/tty
-  read -r ans </dev/tty 2>/dev/null || true
-  ans="${ans,,}"
-  if [[ -z "$ans" || "$ans" == y* || "$ans" == yes ]]; then
-    cleanup_on_failure
-    echo "  ${GREEN}${CHK}${NC} Cleaned up."
-  else
-    echo "  ${INF} Files left at ${TEAMTP_DIR}. Run install.sh --wipe to clean up later."
+# ─── Traps ───
+trap '_last_cmd=$BASH_COMMAND; _last_ln=$LINENO' DEBUG
+
+trap '
+  ec=$?
+  if [[ $ec -ne 0 && $ec -ne 130 && $ec -ne 143 ]]; then
+    printf "\n  ${RED}%s Fatal at line %s (exit %s): %s${NC}\n" "${CRS}" "$_last_ln" "$ec" "$_last_cmd" >/dev/tty 2>/dev/null
+    printf "  ${DIM}%s Log: %s${NC}\n" "${ARW}" "$INSTALL_LOG" >/dev/tty 2>/dev/null
+    printf "  ${DIM}%s Re-run with DEBUG=true for full trace.${NC}\n" "${ARW}" >/dev/tty 2>/dev/null
   fi
-  exit 1
+' EXIT
+
+# ─── Signal handlers ───
+_on_signal() {
+  echo ""
+  warn "Installation interrupted (signal $1)."
+  if [[ "$RESUME" == "true" ]]; then
+    info "Phase markers preserved. Re-run with --resume to continue."
+  fi
+  exit $(( 128 + $1 ))
 }
 
-trap '_trap_handler INT' INT
-trap '_trap_handler TERM' TERM
+trap '_on_signal INT' INT
+trap '_on_signal TERM' TERM
 
 # ══════════════════════════════════════════════════════════════════
 # PHASE 0: Argument Parsing & Header
@@ -168,6 +211,8 @@ show_help() {
   echo "  --dry-run          Preview installation without making changes"
   echo "  --non-interactive  Skip wizard, use environment variables"
   echo "  --force            Overwrite existing installation"
+  echo "  --resume           Skip already-completed phases (retry after failure)"
+  echo "  --debug            Full execution trace (set -x) plus terminal stderr"
   echo "  --wipe             Remove all traces of a previous installation"
   echo "  --help             Show this help"
   echo "  --version          Show version"
@@ -197,6 +242,8 @@ parse_args() {
       --dry-run) DRY_RUN="true" ;;
       --force) FORCE="true" ;;
       --non-interactive) NON_INTERACTIVE="true" ;;
+      --resume) RESUME="true" ;;
+      --debug) DEBUG="true" ;;
       --wipe|wipe) do_wipe; exit 0 ;;
       --help|-h|help) show_help; exit 0 ;;
       --version|-v) echo "TimyabSpeak Installer v${INSTALL_VERSION}"; exit 0 ;;
@@ -210,7 +257,7 @@ parse_args() {
 # ══════════════════════════════════════════════════════════════════
 
 preflight() {
-  step 1 14 "Pre-flight checks"
+  step 1 $PHASE_TOTAL "Pre-flight checks"
 
   # Root
   [[ $EUID -eq 0 ]] || fail "Run as root: sudo bash install.sh"
@@ -299,7 +346,7 @@ preflight() {
 # ══════════════════════════════════════════════════════════════════
 
 wizard() {
-  step 2 14 "Server configuration"
+  step 2 $PHASE_TOTAL "Server configuration"
 
   # Check if all env vars are provided for non-interactive mode
   local env_mode=false
@@ -423,7 +470,7 @@ _yn() {
 # ══════════════════════════════════════════════════════════════════
 
 install_deps() {
-  step 3 14 "System dependencies"
+  step 3 $PHASE_TOTAL "System dependencies"
 
   # apt update
   _run_spin "Updating package lists" apt-get update -qq || warn "apt update failed, continuing"
@@ -459,7 +506,7 @@ install_deps() {
 # ══════════════════════════════════════════════════════════════════
 
 create_users() {
-  step 4 14 "System users"
+  step 4 $PHASE_TOTAL "System users"
 
   if [[ "$DRY_RUN" != "true" ]]; then
     id -u tsserver &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin tsserver
@@ -473,7 +520,7 @@ create_users() {
 # ══════════════════════════════════════════════════════════════════
 
 deploy_files() {
-  step 5 14 "Deploying files"
+  step 5 $PHASE_TOTAL "Deploying files"
 
   if [[ "$DRY_RUN" == "true" ]]; then
     info "(dry-run) Would deploy to ${TEAMTP_DIR}"
@@ -523,7 +570,7 @@ deploy_files() {
       (cd "$TEAMTP_DIR" && git pull) >> "$INSTALL_LOG" 2>&1 || warn "git pull failed"
     else
       rm -rf "$TEAMTP_DIR"
-      git clone "$repo" "$TEAMTP_DIR" >> "$INSTALL_LOG" 2>&1 || {
+      git clone --depth 1 --single-branch "$repo" "$TEAMTP_DIR" >> "$INSTALL_LOG" 2>&1 || {
         warn "git clone failed. For private repos, set TEAMTP_REPO with a PAT or deploy key."
         fail "Cannot deploy files. Try: TEAMTP_REPO=https://<token>@github.com/User/Repo.git sudo -E bash install.sh"
       }
@@ -548,7 +595,7 @@ deploy_files() {
 # ══════════════════════════════════════════════════════════════════
 
 install_npm() {
-  step 6 14 "npm dependencies"
+  step 6 $PHASE_TOTAL "npm dependencies"
 
   local dirs=(
     "bots/level-bot|better-sqlite3"
@@ -611,7 +658,7 @@ _write_package_json() {
 # ══════════════════════════════════════════════════════════════════
 
 generate_secrets() {
-  step 7 14 "Generating secrets"
+  step 7 $PHASE_TOTAL "Generating secrets"
 
   SECRET_QUERY_PASS=$(openssl rand -hex 16)
   SECRET_API_KEY=$(openssl rand -hex 32)
@@ -695,24 +742,24 @@ find_port() {
 # ══════════════════════════════════════════════════════════════════
 
 install_ts6() {
-  step 8 14 "TeamSpeak 6 server"
+  step 8 $PHASE_TOTAL "TeamSpeak 6 server"
 
   local ts_dir="${TEAMTP_DIR}/server/teamspeak6"
   local ts_bin="tsserver"
 
   if [[ "$DRY_RUN" != "true" ]]; then
     mkdir -p "$ts_dir"
-    mkdir -p "${ts_dir}/sql" "${ts_dir}/sql/create_sqlite"
 
     if [[ ! -f "${ts_dir}/${ts_bin}" ]]; then
       local tmp extract_dir
       tmp="$(mktemp)"
       extract_dir="$(mktemp -d)"
 
-      _run_spin "Downloading TeamSpeak 6 server" curl -fsSL --retry 3 --retry-delay 5 -o "$tmp" "$TS6_URL" || {
+      _run_spin "Downloading TeamSpeak 6 server" curl -fsSL --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 5 -o "$tmp" "$TS6_URL" || {
         rm -rf "$tmp" "$extract_dir"
         fail "Download failed (404 or network). TS6 beta URL may have changed. Override: TS6_URL=<url> sudo -E bash install.sh"
       }
+      [[ -s "$tmp" ]] || { rm -rf "$tmp" "$extract_dir"; fail "Downloaded file is empty. The TS6 URL may be invalid."; }
 
       # Extract to temp dir to inspect structure
       if ! tar -xaf "$tmp" -C "$extract_dir" 2>/dev/null; then
@@ -734,9 +781,9 @@ install_ts6() {
       fi
 
       # Move everything into ts_dir
-      shopt -s dotglob
+      shopt -s nullglob dotglob
       mv "$content_dir"/* "$ts_dir"/ 2>/dev/null || true
-      shopt -u dotglob
+      shopt -u nullglob dotglob
 
       rm -rf "$extract_dir"
 
@@ -754,6 +801,9 @@ install_ts6() {
         fail "TS6 server binary not found after extraction. See log for archive contents."
       fi
     fi
+
+    # Create required subdirectories (after extraction to avoid mv conflicts)
+    mkdir -p "${ts_dir}/sql" "${ts_dir}/sql/create_sqlite"
 
     # Write config
     cat > "${ts_dir}/tsserver.yaml" <<YAML
@@ -780,7 +830,7 @@ server:
     sql-create-path: ${ts_dir}/sql/create_sqlite/
 YAML
 
-    chown -R tsserver:tsserver "$ts_dir"
+    chown -R tsserver:tsserver "$ts_dir" 2>/dev/null || true
   fi
 
   ok "TeamSpeak 6 server configured"
@@ -791,7 +841,7 @@ YAML
 # ══════════════════════════════════════════════════════════════════
 
 setup_systemd() {
-  step 9 14 "Systemd services"
+  step 9 $PHASE_TOTAL "Systemd services"
 
   if [[ "$DRY_RUN" == "true" ]]; then
     info "(dry-run) Would install and start systemd services"
@@ -818,7 +868,7 @@ setup_systemd() {
     _write_systemd_units_inline
   fi
 
-  systemctl daemon-reload
+  systemctl daemon-reload 2>/dev/null || true
   _cmd systemctl enable teamspeak6 || warn "Failed to enable teamspeak6"
 
   # Start TS6
@@ -937,7 +987,7 @@ UNIT
 # ══════════════════════════════════════════════════════════════════
 
 install_cli() {
-  step 10 14 "CLI tool"
+  step 10 $PHASE_TOTAL "CLI tool"
 
   if [[ "$DRY_RUN" != "true" ]]; then
     local cli_src="${SRC_DIR}/scripts/teamtp.sh"
@@ -1103,7 +1153,7 @@ cmd_update() {
     echo "CLI updated."
   fi
 
-  systemctl daemon-reload
+  systemctl daemon-reload 2>/dev/null || true
   for s in teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
     systemctl restart "$s" 2>/dev/null || true
   done
@@ -1193,7 +1243,7 @@ CLIEOF
 # ══════════════════════════════════════════════════════════════════
 
 setup_nginx() {
-  step 11 14 "Nginx & SSL"
+  step 11 $PHASE_TOTAL "Nginx & SSL"
 
   local domain="${WIZARD_DOMAIN:-}"
   local server_names
@@ -1311,7 +1361,7 @@ NGX
 # ══════════════════════════════════════════════════════════════════
 
 setup_firewall() {
-  step 12 14 "Firewall & security"
+  step 12 $PHASE_TOTAL "Firewall & security"
 
   if [[ "$DRY_RUN" == "true" ]]; then
     info "(dry-run) Would configure UFW and fail2ban"
@@ -1352,7 +1402,7 @@ F2B
 # ══════════════════════════════════════════════════════════════════
 
 finish_setup() {
-  step 13 14 "Finishing up"
+  step 13 $PHASE_TOTAL "Finishing up"
 
   if [[ "$DRY_RUN" != "true" ]]; then
     # Logrotate
@@ -1386,7 +1436,7 @@ LOG
 # ══════════════════════════════════════════════════════════════════
 
 print_summary() {
-  step 14 14 "Installation complete"
+  step 14 $PHASE_TOTAL "Installation complete"
 
   local ip
   ip=$(hostname -I 2>/dev/null | awk '{print $1}') || ip="<server-ip>"
@@ -1489,23 +1539,42 @@ main() {
 
   mkdir -p "$(dirname "$INSTALL_LOG")" 2>/dev/null || true
   touch "$INSTALL_LOG" 2>/dev/null || true
-  exec 2>>"$INSTALL_LOG"
+  if [[ "$DEBUG" == "true" ]]; then
+    set -x
+    export PS4='+ ${BASH_SOURCE}:${LINENO}: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+  else
+    exec 2>>"$INSTALL_LOG"
+  fi
 
   show_header
-  preflight
-  wizard
-  install_deps
-  create_users
-  deploy_files
-  install_npm
-  generate_secrets
-  install_ts6
-  setup_systemd
-  install_cli
-  setup_nginx
-  setup_firewall
-  finish_setup
-  print_summary
+
+  _run_phase() {
+    local n="$1"; shift
+    if [[ "$RESUME" == "true" ]] && _phase_skip "$n"; then
+      info "Phase ${n} already completed, skipping"; return 0
+    fi
+    _phase_enter "$n"
+    "$@"
+    _phase_done
+  }
+
+  # Clean any stale phase markers from a previous interrupted run
+  [[ "$RESUME" != "true" ]] && rm -f "${TEAMTP_DIR}"/.phase-* 2>/dev/null || true
+
+  _run_phase 1  preflight
+  _run_phase 2  wizard
+  _run_phase 3  install_deps
+  _run_phase 4  create_users
+  _run_phase 5  deploy_files
+  _run_phase 6  install_npm
+  _run_phase 7  generate_secrets
+  _run_phase 8  install_ts6
+  _run_phase 9  setup_systemd
+  _run_phase 10 install_cli
+  _run_phase 11 setup_nginx
+  _run_phase 12 setup_firewall
+  _run_phase 13 finish_setup
+  _run_phase 14 print_summary
 
   _log "Installation complete. Version: ${INSTALL_VERSION}"
 }
