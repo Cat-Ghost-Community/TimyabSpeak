@@ -253,13 +253,35 @@ run_wizard() {
     return
   fi
 
+  # ── whiptail helper: captures output AND exit code ──
+  whiptail_get() {
+    local __resultvar=$1; shift
+    local __output
+    local __ret=0
+    __output=$(whiptail "$@" 3>&1 1>&2 2>&3) || __ret=$?
+    if [[ $__ret -ne 0 ]]; then
+      # Cancel/Esc pressed — user wants to abort
+      if whiptail --title "Confirm Exit" --yesno "Cancel installation?" 7 40; then
+        echo "Installation cancelled by user." | tee -a "$INSTALL_LOG"
+        exit 1
+      else
+        # User chose "No" — retry the question
+        whiptail_get "$__resultvar" "$@"
+        return $?
+      fi
+    fi
+    eval "$__resultvar=\$__output"
+  }
+
   local use_whiptail=false
   command -v whiptail &>/dev/null && use_whiptail=true
 
   if ! $use_whiptail; then
-    # Plain text wizard
+    # ── Plain-text wizard ──
     echo ""
     echo "=== TeamTP Setup Wizard ==="
+    echo "Press Ctrl+C at any time to cancel."
+    echo ""
     read -rp "Domain (blank for IP-based): " WIZARD_DOMAIN
     if [[ -z "$WIZARD_DOMAIN" ]]; then
       WIZARD_SSL="none"
@@ -272,7 +294,7 @@ run_wizard() {
     read -rp "Admin username [admin]: " tmp; WIZARD_ADMIN_USER="${tmp:-admin}"
     while true; do
       read -rsp "Admin password (min 8 chars): " tmp; echo
-      [[ ${#tmp} -ge 8 ]] && break
+      if [[ ${#tmp} -ge 8 ]]; then break; fi
       echo "Too short. Need 8+ characters."
     done
     WIZARD_ADMIN_PASS="$tmp"
@@ -280,29 +302,30 @@ run_wizard() {
     read -rp "Max slots [64]: " tmp; WIZARD_SLOTS="${tmp:-64}"
     read -rp "Welcome message [Welcome!]: " tmp; WIZARD_WELCOME="${tmp:-Welcome!}"
   else
-    # whiptail wizard
-    WIZARD_DOMAIN=$(whiptail --inputbox "Domain name (blank = IP-based)" 8 60 "" 3>&1 1>&2 2>&3)
+    # ── whiptail wizard with proper Cancel/Esc handling ──
+    whiptail_get WIZARD_DOMAIN --inputbox "Domain name (blank = IP-based)" 8 60
     if [[ -z "$WIZARD_DOMAIN" ]]; then
-      WIZARD_SSL=$(whiptail --menu "SSL for IP?" 10 50 2 \
+      whiptail_get WIZARD_SSL --menu "SSL for IP?" 10 50 2 \
         "none" "No SSL" \
-        "self-signed" "Self-signed cert" 3>&1 1>&2 2>&3)
+        "self-signed" "Self-signed cert"
     else
-      WIZARD_SSL=$(whiptail --menu "SSL for ${WIZARD_DOMAIN}?" 10 50 2 \
+      whiptail_get WIZARD_SSL --menu "SSL for ${WIZARD_DOMAIN}?" 10 50 2 \
         "letsencrypt" "Let's Encrypt (auto)" \
         "self-signed" "Self-signed" \
-        "none" "No SSL" 3>&1 1>&2 2>&3)
+        "none" "No SSL"
     fi
-    WIZARD_SERVER_NAME=$(whiptail --inputbox "Server name" 8 60 "My Gaming Community" 3>&1 1>&2 2>&3)
-    WIZARD_ADMIN_USER=$(whiptail --inputbox "Admin username" 8 60 "admin" 3>&1 1>&2 2>&3)
+    whiptail_get WIZARD_SERVER_NAME --inputbox "Server name" 8 60 "My Gaming Community"
+    whiptail_get WIZARD_ADMIN_USER --inputbox "Admin username" 8 60 "admin"
     while true; do
-      WIZARD_ADMIN_PASS=$(whiptail --passwordbox "Admin password (min 8 chars)" 8 60 3>&1 1>&2 2>&3)
-      [[ ${#WIZARD_ADMIN_PASS} -ge 8 ]] && break
+      whiptail_get WIZARD_ADMIN_PASS --passwordbox "Admin password (min 8 chars)" 8 60
+      if [[ ${#WIZARD_ADMIN_PASS} -ge 8 ]]; then break; fi
       whiptail --msgbox "Password too short. Need 8+ characters." 6 50
     done
-    WIZARD_COMMUNITY=$(whiptail --inputbox "Community name" 8 60 "Gaming" 3>&1 1>&2 2>&3)
-    WIZARD_WELCOME=$(whiptail --inputbox "Welcome message" 8 60 "Welcome to the community!" 3>&1 1>&2 2>&3)
-    WIZARD_SLOTS=$(whiptail --inputbox "Max slots" 8 60 "64" 3>&1 1>&2 2>&3)
+    whiptail_get WIZARD_COMMUNITY --inputbox "Community name" 8 60 "Gaming"
+    whiptail_get WIZARD_WELCOME --inputbox "Welcome message" 8 60 "Welcome to the community!"
+    whiptail_get WIZARD_SLOTS --inputbox "Max slots (0 = unlimited)" 8 60 "64"
   fi
+
   log "Wizard: ${WIZARD_SERVER_NAME} (${WIZARD_DOMAIN:-IP})"
 }
 
