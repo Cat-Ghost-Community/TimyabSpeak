@@ -44,8 +44,8 @@ warn()  { echo -e "  ${YELLOW}${WRN}${NC} $*"; _log "[WARN] $*"; }
 info()  { echo -e "  ${CYAN}${INF}${NC} $*"; _log "[INFO] $*"; }
 fail()  {
   local msg="$*"
-  printf "\n  ${RED}%s %s${NC}\n" "${CRS}" "$msg" >&2
-  printf "  ${DIM}%s Full log: %s${NC}\n" "${ARW}" "$INSTALL_LOG" >&2
+  printf "\n  ${RED}%s %s${NC}\n" "${CRS}" "$msg" >/dev/tty 2>/dev/null
+  printf "  ${DIM}%s Full log: %s${NC}\n" "${ARW}" "$INSTALL_LOG" >/dev/tty 2>/dev/null
   _log "[FAIL] $msg"
   cleanup_on_failure
   exit 1
@@ -243,21 +243,25 @@ preflight() {
   fi
 
   # glibc version
-  if command -v ldd &>/dev/null; then
-    local glibc_ver
-    glibc_ver=$(ldd --version 2>/dev/null | head -1 | grep -oP '[\d]+\.[\d]+' | head -1 || echo "0")
-    if [[ -n "$glibc_ver" ]] && awk "BEGIN{exit !($glibc_ver >= 2.32)}"; then
+  local glibc_ver
+  glibc_ver=$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $NF}' || true)
+  if [[ -n "$glibc_ver" && "$glibc_ver" != "0" ]]; then
+    if awk "BEGIN{exit !($glibc_ver >= 2.32)}"; then
       ok "glibc: ${glibc_ver} (>= 2.32 required)"
     else
-      fail "glibc ${glibc_ver:-unknown} is too old. TeamSpeak 6 requires glibc >= 2.32. Upgrade to Ubuntu 22.04+ / Debian 12+."
+      fail "glibc ${glibc_ver} is too old. TeamSpeak 6 requires glibc >= 2.32. Upgrade to Ubuntu 22.04+ / Debian 12+."
     fi
   else
-    warn "Could not check glibc version. TeamSpeak 6 requires glibc >= 2.32."
+    warn "Could not determine glibc version. TeamSpeak 6 requires glibc >= 2.32."
   fi
 
   # RAM
   local mem
-  mem=$(free -m 2>/dev/null | awk '/^Mem:/{print $2}') || mem=0
+  if [[ -f /proc/meminfo ]]; then
+    mem=$(awk '/^MemTotal:/{printf "%d", int($2/1024)}' /proc/meminfo 2>/dev/null) || mem=0
+  else
+    mem=$(free -m 2>/dev/null | awk '/^Mem:/{print $2}') || mem=0
+  fi
   if [[ ${mem:-0} -ge 512 ]]; then
     ok "RAM: ${mem}MB"
   else
@@ -266,7 +270,9 @@ preflight() {
 
   # Disk space
   local disk_free
-  disk_free=$(df /opt --output=avail 2>/dev/null | tail -1) || disk_free=$(df / --output=avail 2>/dev/null | tail -1) || disk_free=0
+  disk_free=$(df /opt --output=avail 2>/dev/null | awk 'NR==2{print $1}' || true)
+  [[ -z "$disk_free" || "$disk_free" == "0" ]] && disk_free=$(df / --output=avail 2>/dev/null | awk 'NR==2{print $1}' || true)
+  [[ -z "$disk_free" ]] && disk_free=0
   if [[ ${disk_free:-0} -ge 2097152 ]]; then
     ok "Disk: $((disk_free/1024/1024))GB free on /opt"
   else
