@@ -3,8 +3,112 @@
 **TimyabSpeak** (formerly TeamTP) is a complete, professional TeamSpeak 6 server deployment system with a one-command installer, three integrated bots (level-up, temp channels, support ticketing), a modern web panel, and a powerful CLI — all packaged as a single setup wizard.
 
 ```
-curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/master/install.sh | sudo bash
 ```
+
+---
+
+## Quick Start for Beginners (No Linux Experience?)
+
+This guide is written for people who have **never used Linux before**. If you already know SSH and basic commands, skip ahead to [System Requirements](#system-requirements).
+
+### What You Need
+
+| Item | Example | Where to Get It |
+|------|---------|-----------------|
+| **A Linux server** | Ubuntu 22.04 or 24.04 | Rent one from Hetzner, Linode, DigitalOcean, Vultr, or Contabo ($5-10/month) |
+| **SSH client** | Terminal (Mac/Linux) or PuTTY (Windows) | Built-in on Mac/Linux. Download [PuTTY](https://putty.org) for Windows |
+| **Domain (optional)** | `your-server.com` | Namecheap, Cloudflare, GoDaddy ($10/year) |
+| **10 minutes** | — | That's all the setup takes |
+
+### Step 1: Get a Server
+
+1. Go to any VPS provider (Hetzner, DigitalOcean, Linode, Vultr)
+2. Create an account and add payment
+3. Create a new **droplet/server/virtual machine**
+4. Choose **Ubuntu 24.04 LTS** as the operating system
+5. Choose the cheapest plan ($5-10/month is enough)
+6. They will email you the **root password** or an **SSH key**
+
+### Step 2: Connect to Your Server
+
+**On Mac or Linux:**
+
+Open **Terminal** (search for "Terminal" in your apps). Type:
+
+```bash
+ssh root@<YOUR_SERVER_IP>
+```
+
+Replace `<YOUR_SERVER_IP>` with the IP address your VPS provider gave you. Example:
+
+```bash
+ssh root@123.123.123.123
+```
+
+If it asks "Are you sure you want to continue connecting?", type `yes` and press Enter.
+If it asks for a password, paste or type the password from your provider (you won't see the password as you type — that's normal).
+
+**On Windows:**
+
+1. Download and install [PuTTY](https://putty.org)
+2. Open PuTTY
+3. In "Host Name", type `root@<YOUR_SERVER_IP>` (example: `root@123.123.123.123`)
+4. Click "Open"
+5. If a security alert appears, click "Accept"
+6. A terminal window opens asking for a password — paste or type the password from your provider
+
+You are now **inside your server**. The prompt will look like `root@server:~#`.
+
+### Step 3: Run the One-Command Installer
+
+Copy and paste this entire command into your terminal, then press Enter:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/master/install.sh | sudo bash
+```
+
+**What this command does:**
+- `curl` — downloads the installer from GitHub
+- `-fsSL` — flags to make it silent and follow redirects
+- `|` — pipe symbol sends the download into...
+- `sudo bash` — runs the installer as root (administrator)
+
+**What happens next:**
+1. The installer checks your server meets requirements
+2. A **wizard** appears asking questions (domain, server name, password, etc.)
+3. Use **Tab** to move between buttons, **Enter** to click OK, **Esc** to cancel
+4. It installs everything automatically — this takes 2-5 minutes
+5. At the end, a **summary screen** shows your login credentials
+
+> **Tip:** Write down the privilege key shown at the end. You need it to log in as admin!
+
+### Step 4: Connect to Your TeamSpeak Server
+
+1. Download the **TeamSpeak 6 client** from [teamspeak.com](https://www.teamspeak.com)
+2. Open the client
+3. Click **Connections → Connect**
+4. In **Server Address**, type your server's IP address (or domain)
+5. Leave the port as 9987 (unless the installer said it changed)
+6. Click **Connect**
+7. When prompted, enter the **privilege key** from the installation summary
+8. You are now the server admin! 🎉
+
+### Step 5: Open the Web Panel
+
+Open your web browser and go to:
+
+- `http://<YOUR_SERVER_IP>:3000`
+- Or if you used a domain: `https://panel.your-domain.com`
+
+Log in with the admin username and password you set during installation.
+
+### Need Help?
+
+- **Can't connect via SSH?** — Check your VPS provider's documentation for "how to access your server"
+- **Installation fails?** — Scroll up and look for red `[FAIL]` messages
+- **Lost your privilege key?** — Run `journalctl -u teamspeak6 | grep token` on the server
+- **Forgot admin password?** — Run `cat /opt/teamtp/.env | grep PANEL_ADMIN`
 
 ---
 
@@ -42,7 +146,7 @@ curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/mai
 
 ```bash
 # Basic install (prompts for config)
-curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/master/install.sh | sudo bash
 ```
 
 ### With Custom TS6 Download URL
@@ -54,57 +158,96 @@ TS6_URL=https://your-mirror/tsserver.tar.gz sudo bash install.sh
 ### Dry-Run Preview
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/main/install.sh | sudo bash -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/master/install.sh | sudo bash -s -- --dry-run
 ```
 
 ---
 
-## Installation — Private Repo via SSH
+## Installation — Private Repo (Forks / Custom Versions)
 
-For private repositories or when you have your own fork:
+If you **forked** this project into your own private GitHub repo, you need to give the installer permission to download from it. There are three ways to do this.
 
-### 1. Generate a GitHub Fine-Grained PAT
+### Method 1: GitHub Personal Access Token (Easiest)
 
-1. Go to **GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens**
-2. Click **Generate new token**
-3. Set:
-   - **Token name**: `TimyabSpeak-deploy`
-   - **Repository access**: Only select repositories → Tick your private repo
-   - **Permissions**:
-     - `Contents` → `Read and write`
-     - `Metadata` → `Read-only`
-4. Click **Generate token** and copy the token
+A **token** is like a password that lets the installer download your private repo.
 
-### 2. Install Using the Token
+#### Step 1: Create a Token
 
-```bash
-# Via HTTPS with token
-sudo TEAMTP_REPO=https://<YOUR_TOKEN>@github.com/yourname/TimyabSpeak.git bash install.sh
+1. Go to https://github.com/settings/tokens/new
+2. Give it a name, e.g., `TimyabSpeak-deploy`
+3. Set **Expiration**: "No expiration" (or 90 days)
+4. Under **Repository access**: "Only select repositories" → Choose your forked repo
+5. Under **Permissions** → **Contents**: change to "Read and write"
+6. Click **Generate token**
+7. **Copy the token now** (it looks like `github_pat_...` — it's only shown once!)
 
-# Or set the env var separately
-export TEAMTP_REPO=https://<YOUR_TOKEN>@github.com/yourname/TimyabSpeak.git
-sudo bash install.sh
-```
+#### Step 2: Install Using the Token
 
-### 3. Install Using SSH Key
+On your server, run (replace everything in angle brackets):
 
 ```bash
-# Deploy your SSH key on the server first
-ssh-copy-id user@your-server
-
-# Then run with SSH repo URL
-sudo TEAMTP_REPO=git@github.com:yourname/TimyabSpeak.git bash install.sh
+sudo TEAMTP_REPO=https://<YOUR_TOKEN>@github.com/<YOUR_USERNAME>/TimyabSpeak.git bash -c "$(curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/master/install.sh)"
 ```
 
-### 4. Install from a Local Clone
+**Example with real values:**
 
 ```bash
-git clone git@github.com:yourname/TimyabSpeak.git /opt/TimyabSpeak
-cd /opt/TimyabSpeak
-sudo bash install.sh
+sudo TEAMTP_REPO=https://github_pat_11AABBCCDDEEFFGGHHIIJJ@github.com/MyCoolGamer/TimyabSpeak.git bash install.sh
 ```
 
-The installer auto-detects the cloned repo and pulls updates automatically.
+### Method 2: SSH Key (Advanced)
+
+For servers you use long-term, SSH keys are more secure.
+
+#### Step 1: Generate an SSH Key on Your Server
+
+```bash
+ssh-keygen -t ed25519 -C "teamtp-deploy" -f ~/.ssh/teamtp -N ""
+```
+
+This creates two files:
+- `~/.ssh/teamtp` — your **private key** (keep secret!)
+- `~/.ssh/teamtp.pub` — your **public key** (you'll give this to GitHub)
+
+#### Step 2: View and Copy Your Public Key
+
+```bash
+cat ~/.ssh/teamtp.pub
+```
+
+Copy the output (it starts with `ssh-ed25519`).
+
+#### Step 3: Add It to GitHub
+
+1. Go to your **forked repo** on GitHub
+2. Click **Settings** → **Deploy keys** → **Add deploy key**
+3. Paste the public key
+4. Check "Allow write access"
+5. Click **Add key**
+
+#### Step 4: Install
+
+```bash
+sudo TEAMTP_REPO=git@github.com:<YOUR_USERNAME>/TimyabSpeak.git GIT_SSH_COMMAND="ssh -i ~/.ssh/teamtp" bash install.sh
+```
+
+### Method 3: Clone Manually (No Token Needed)
+
+If you already have the files on your computer, upload them to the server:
+
+```bash
+# On your local computer — zip the project
+cd /path/to/TimyabSpeak
+tar -czf teamtp.tar.gz .
+
+# Upload to your server (replace IP)
+scp teamtp.tar.gz root@<YOUR_SERVER_IP>:/opt/
+
+# On your server — extract and install
+cd /opt
+tar -xzf teamtp.tar.gz
+sudo bash /opt/TimyabSpeak/install.sh
+```
 
 ---
 
