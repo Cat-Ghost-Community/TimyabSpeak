@@ -258,7 +258,7 @@ The wizard goes through these phases:
 ```
 Phase  0: Pre-flight — root check, OS check (glibc ≥ 2.32), disk space, port scanning
 Phase  1: Wizard — domain/IP, SSL choice, server name, admin credentials, community name, slots
-Phase  2: Dependencies — apt packages, Node.js 20.x, python3-bcrypt
+Phase  2: Dependencies — apt packages, Node.js 20.x, build tools
 Phase  3: System users — tsserver + teamtp (no login, no home)
 Phase  4: Deploy files — git clone or local copy → /opt/teamtp/
 Phase  5: Generate secrets — bcrypt password hash, API key, JWT secrets, query password
