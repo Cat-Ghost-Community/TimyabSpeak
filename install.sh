@@ -183,7 +183,7 @@ scan_ports() {
 install_deps() {
   info "Installing system dependencies..."
   apt-get update -qq || warn "apt update failed"
-  apt-get install -y -qq curl wget gnupg whiptail nginx certbot python3-certbot-nginx python3-bcrypt \
+  apt-get install -y -qq curl wget gnupg nginx certbot python3-certbot-nginx python3-bcrypt \
     ufw fail2ban logrotate unattended-upgrades openssl 2>&1 | tail -1 || warn "Some deps failed"
 
   if [[ "$(uname -m)" == "aarch64" ]]; then
@@ -253,71 +253,59 @@ run_wizard() {
     return
   fi
 
-  local use_whiptail=false; command -v whiptail &>/dev/null && use_whiptail=true
+  echo ""
+  echo "╔══════════════════════════════════════════════╗"
+  echo "║        TimyabSpeak Setup Wizard              ║"
+  echo "║  Press Enter to accept defaults in [brackets] ║"
+  echo "║  Press Ctrl+C anytime to cancel               ║"
+  echo "╚══════════════════════════════════════════════╝"
+  echo ""
 
-  # ── helper: ask whiptail question, retry on Cancel ──
-  # Usage: ask "VAR_NAME" whiptail --inputbox "prompt" 8 60 "default"
-  ask() {
-    local var=$1; shift
-    while true; do
-      local result=""
-      result=$("$@" 3>&1 1>&2 2>&3) && {
-        eval "$var=\$result"
-        return 0
-      }
-      # Cancel/Esc pressed — ask to abort
-      whiptail --title "Cancel?" --yesno "Cancel installation?" 7 40 && {
-        echo "Installation cancelled." | tee -a "$INSTALL_LOG"
-        exit 1
-      }
-    done
-  }
+  read -rp "Domain name (leave blank for IP-based setup): " WIZARD_DOMAIN
 
-  if ! $use_whiptail; then
-    # ── Plain-text wizard ──
-    echo ""
-    echo "=== TimyabSpeak Setup Wizard ==="
-    echo "Press Ctrl+C to cancel."
-    echo ""
-    read -rp "Domain (blank for IP-based): " WIZARD_DOMAIN
-    if [[ -z "$WIZARD_DOMAIN" ]]; then WIZARD_SSL="none"
-    else read -rp "SSL (letsencrypt/self-signed/none) [none]: " ssl_choice; WIZARD_SSL="${ssl_choice:-none}"
-    fi
-    read -rp "Server name [My Gaming Community]: " tmp; WIZARD_SERVER_NAME="${tmp:-My Gaming Community}"
-    read -rp "Admin username [admin]: " tmp; WIZARD_ADMIN_USER="${tmp:-admin}"
-    while true; do
-      read -rsp "Admin password (min 8 chars): " tmp; echo
-      [[ ${#tmp} -ge 8 ]] && break
-      echo "Too short. Need 8+ characters."
-    done
-    WIZARD_ADMIN_PASS="$tmp"
-    read -rp "Community name [Gaming]: " tmp; WIZARD_COMMUNITY="${tmp:-Gaming}"
-    read -rp "Max slots [64]: " tmp; WIZARD_SLOTS="${tmp:-64}"
-    read -rp "Welcome message [Welcome!]: " tmp; WIZARD_WELCOME="${tmp:-Welcome!}"
+  if [[ -z "$WIZARD_DOMAIN" ]]; then
+    echo "  SSL options:"
+    echo "    1) None (no encryption)"
+    echo "    2) Self-signed certificate"
+    read -rp "  Choose [1]: " ssl_choice
+    case "${ssl_choice:-1}" in
+      2) WIZARD_SSL="self-signed" ;;
+      *) WIZARD_SSL="none" ;;
+    esac
   else
-    # ── whiptail wizard ──
-    ask WIZARD_DOMAIN whiptail --inputbox "Domain name (leave blank for IP-based)" 8 60 ""
-    if [[ -z "$WIZARD_DOMAIN" ]]; then
-      ask WIZARD_SSL whiptail --menu "SSL for IP?" 10 50 2 \
-        "none" "No SSL" \
-        "self-signed" "Self-signed certificate"
-    else
-      ask WIZARD_SSL whiptail --menu "SSL for ${WIZARD_DOMAIN}?" 10 50 2 \
-        "letsencrypt" "Let's Encrypt (automatic)" \
-        "self-signed" "Self-signed certificate" \
-        "none" "No SSL"
-    fi
-    ask WIZARD_SERVER_NAME whiptail --inputbox "Server name" 8 60 "My Gaming Community"
-    ask WIZARD_ADMIN_USER whiptail --inputbox "Admin username" 8 60 "admin"
-    while true; do
-      ask WIZARD_ADMIN_PASS whiptail --passwordbox "Admin password (min 8 characters)" 8 60 ""
-      if [[ ${#WIZARD_ADMIN_PASS} -ge 8 ]]; then break; fi
-      whiptail --msgbox "Password too short. Need 8+ characters." 6 50
-    done
-    ask WIZARD_COMMUNITY whiptail --inputbox "Community name" 8 60 "Gaming"
-    ask WIZARD_WELCOME whiptail --inputbox "Welcome message" 8 60 "Welcome to the community!"
-    ask WIZARD_SLOTS whiptail --inputbox "Max slots (0 = unlimited)" 8 60 "64"
+    echo "  SSL options:"
+    echo "    1) Let's Encrypt (automatic, recommended)"
+    echo "    2) Self-signed certificate"
+    echo "    3) No SSL"
+    read -rp "  Choose [1]: " ssl_choice
+    case "${ssl_choice:-1}" in
+      2) WIZARD_SSL="self-signed" ;;
+      3) WIZARD_SSL="none" ;;
+      *) WIZARD_SSL="letsencrypt" ;;
+    esac
   fi
+
+  read -rp "Server name [My Gaming Community]: " tmp
+  WIZARD_SERVER_NAME="${tmp:-My Gaming Community}"
+
+  read -rp "Admin username [admin]: " tmp
+  WIZARD_ADMIN_USER="${tmp:-admin}"
+
+  while true; do
+    read -rsp "Admin password (min 8 characters): " tmp; echo
+    if [[ ${#tmp} -ge 8 ]]; then break; fi
+    echo "  Password too short. Need 8+ characters."
+  done
+  WIZARD_ADMIN_PASS="$tmp"
+
+  read -rp "Community name [Gaming]: " tmp
+  WIZARD_COMMUNITY="${tmp:-Gaming}"
+
+  read -rp "Max slots [64]: " tmp
+  WIZARD_SLOTS="${tmp:-64}"
+
+  read -rp "Welcome message [Welcome!]: " tmp
+  WIZARD_WELCOME="${tmp:-Welcome!}"
 
   log "Wizard: ${WIZARD_SERVER_NAME} (${WIZARD_DOMAIN:-IP})"
 }
