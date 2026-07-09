@@ -92,7 +92,7 @@ preflight() {
 # Prompt yes/no, default Yes. Returns 0=yes 1=no.
 _yn() {
   local prompt="$1" ans
-  read -rp "${prompt} [Y/n]: " ans
+  read -rp "${prompt} [Y/n]: " ans || true
   ans="${ans,,}"
   [[ -z "$ans" || "$ans" == y* || "$ans" == yes ]] && return 0
   return 1
@@ -107,7 +107,7 @@ wizard() {
 
   # ── DOMAIN + SSL ──
   echo -n "Domain name (e.g. myserver.com) or Enter for IP-only: "
-  read -r WIZARD_DOMAIN
+  read -r WIZARD_DOMAIN || true
   WIZARD_DOMAIN="${WIZARD_DOMAIN// /}"
 
   if [[ -n "$WIZARD_DOMAIN" ]]; then
@@ -132,23 +132,23 @@ wizard() {
   echo ""
 
   # ── SERVER NAME ──
-  read -rp "Server name [My Gaming Community]: " tmp
+  read -rp "Server name [My Gaming Community]: " tmp || true
   WIZARD_SERVER_NAME="${tmp:-My Gaming Community}"
 
   # ── ADMIN ──
-  read -rp "Admin username [admin]: " tmp
+  read -rp "Admin username [admin]: " tmp || true
   WIZARD_ADMIN_USER="${tmp:-admin}"
 
   while true; do
-    read -rsp "Admin password (min 8 chars): " tmp; echo
+    read -rsp "Admin password (min 8 chars): " tmp || { tmp=""; break; }; echo
     [[ ${#tmp} -ge 8 ]] && break
     echo "  Too short, try again."
   done
-  WIZARD_ADMIN_PASS="$tmp"
+  WIZARD_ADMIN_PASS="${tmp:-teamtp123}"
 
   # ── SLOTS ──
   while true; do
-    read -rp "Max slots [64]: " tmp
+    read -rp "Max slots [64]: " tmp || { tmp="64"; break; }
     WIZARD_SLOTS="${tmp:-64}"
     if [[ "$WIZARD_SLOTS" =~ ^[0-9]+$ ]] && [[ "$WIZARD_SLOTS" -ge 1 ]]; then
       break
@@ -157,7 +157,7 @@ wizard() {
   done
 
   # ── WELCOME ──
-  read -rp "Welcome message [Welcome!]: " tmp
+  read -rp "Welcome message [Welcome!]: " tmp || true
   WIZARD_WELCOME="${tmp:-Welcome!}"
 
   ok "Wizard complete"
@@ -633,7 +633,7 @@ case "${1:-help}" in
     for db in bots/level-bot/data.sqlite bots/temp-channel-bot/temp-channels.sqlite bots/support-bot/tickets.sqlite; do
       [[ -f "${D}/${db}" ]] && files+=("$db")
     done
-    for ticket in tickets/*.log; do
+    for ticket in "${D}"/tickets/*.log; do
       [[ -f "$ticket" ]] && files+=("${ticket#${D}/}")
     done
 
@@ -679,7 +679,7 @@ case "${1:-help}" in
 
   wipe)
     echo "WARNING: DELETE everything?"
-    read -rp 'Type "DELETE" to confirm: ' c
+    read -rp 'Type "DELETE" to confirm: ' c || true
     [[ "$c" != "DELETE" ]] && { echo "Aborted."; exit 1; }
     for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
       systemctl stop "$s" 2>/dev/null || true
@@ -885,6 +885,7 @@ LOG
 
 # ───── STEP 14: WELCOME ─────
 save_welcome() {
+  mkdir -p "${TEAMTP_DIR}/config"
   printf '%s\n' "$WIZARD_WELCOME" > "${TEAMTP_DIR}/config/welcome.txt"
   chown teamtp:teamtp "${TEAMTP_DIR}/config/welcome.txt"
 }
@@ -932,7 +933,7 @@ wipe() {
   exec </dev/tty 2>/dev/null || true
   echo ""
   echo "WARNING: WIPE deletes ALL files, DBs, config"
-  read -rp 'Type "DELETE" to confirm: ' c
+  read -rp 'Type "DELETE" to confirm: ' c || true
   [[ "$c" != "DELETE" ]] && { echo "Aborted."; exit 1; }
 
   for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
