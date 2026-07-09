@@ -8,7 +8,7 @@ INSTALL_VERSION="2.0.0"
 INSTALL_LOG="/var/log/teamtp-install.log"
 TEAMTP_DIR="/opt/teamtp"
 MARKER="${TEAMTP_DIR}/.installed"
-TS6_URL="${TS6_URL:-https://github.com/teamspeak/teamspeak6-server/releases/download/v6.0.0-beta11/tsserver_6.0.0-beta11_linux_x86_64.tar.gz}"
+TS6_URL="${TS6_URL:-https://github.com/teamspeak/teamspeak6-server/releases/download/v6.0.0-beta11/teamspeak6-server-linux-amd64.tar.xz}"
 TEAMTP_REPO="${TEAMTP_REPO:-}"
 SRC_DIR="${SRC_DIR:-$PWD}"
 DRY_RUN="${DRY_RUN:-false}"
@@ -709,11 +709,11 @@ install_ts6() {
       tmp="$(mktemp)"
       _run_spin "Downloading TeamSpeak 6 server" curl -fsSL --retry 3 --retry-delay 5 -o "$tmp" "$TS6_URL" || {
         rm -f "$tmp"
-        fail "Download failed. The TS6 beta URL may have changed. Set TS6_URL to a valid download URL."
+        fail "Download failed (404 or network). TS6 beta URL may have changed. Override: TS6_URL=<url> sudo -E bash install.sh"
       }
-      _run_spin "Extracting" tar -xzf "$tmp" -C "$ts_dir" --strip-components=1 || {
+      _run_spin "Extracting" tar -xaf "$tmp" -C "$ts_dir" --strip-components=1 || {
         rm -f "$tmp"
-        fail "Archive extraction failed. The download may be corrupted or in an unexpected format."
+        fail "Archive extraction failed. Archive may be corrupted or in unexpected format."
       }
       rm -f "$tmp"
       chmod +x "${ts_dir}/${ts_bin}"
