@@ -716,7 +716,22 @@ install_ts6() {
         fail "Archive extraction failed. Archive may be corrupted or in unexpected format."
       }
       rm -f "$tmp"
-      chmod +x "${ts_dir}/${ts_bin}"
+
+      # Discover binary name — new TS6 packages may rename the executable
+      if [[ -f "${ts_dir}/${ts_bin}" ]]; then
+        chmod +x "${ts_dir}/${ts_bin}"
+      else
+        local found
+        found=$(find "$ts_dir" -maxdepth 2 -type f \( -name "tsserver" -o -name "teamspeak6-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
+        if [[ -n "$found" ]]; then
+          chmod +x "$found"
+          # Symlink so systemd units always reference "tsserver"
+          ln -sf "$(basename "$found")" "${ts_dir}/${ts_bin}"
+          ok "TS6 binary: ${ts_bin} -> $(basename "$found")"
+        else
+          fail "TS6 binary not found after extraction. Archive structure may have changed."
+        fi
+      fi
     fi
 
     # Write config
