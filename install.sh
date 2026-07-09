@@ -105,33 +105,23 @@ wizard() {
   echo "Press Enter to accept [defaults]  |  Ctrl+C to cancel"
   echo ""
 
-  # ── DOMAIN ──
+  # ── DOMAIN + SSL ──
   echo -n "Domain name (e.g. myserver.com) or Enter for IP-only: "
   read -r WIZARD_DOMAIN
   WIZARD_DOMAIN="${WIZARD_DOMAIN// /}"
-  if [[ -n "$WIZARD_DOMAIN" ]]; then
-    echo -n "  → Use ${WIZARD_DOMAIN}"
 
-    # SSL with domain
-    echo ""
-    echo "  SSL options:"
-    echo "    1) Let's Encrypt (free, auto-renew, recommended)"
-    echo "    2) Self-signed (browser warning, no domain validation needed)"
-    echo "    3) No SSL"
-    read -rp "    Which one? [1]: " ssl
-    ssl="${ssl:-1}"
-    case "${ssl,,}" in
-      2|self|self-signed*) WIZARD_SSL="self-signed" ;;
-      3|no|none|skip)       WIZARD_SSL="none" ;;
-      le|letsencrypt|let*)  WIZARD_SSL="letsencrypt" ;;
-      1|*)                  WIZARD_SSL="letsencrypt" ;;
-    esac
-    echo "  → SSL: ${WIZARD_SSL}"
+  if [[ -n "$WIZARD_DOMAIN" ]]; then
+    echo "  → ${WIZARD_DOMAIN}"
+    if _yn "  Enable Let's Encrypt SSL (free, auto-renew)?"; then
+      WIZARD_SSL="letsencrypt"
+    elif _yn "  Use a self-signed certificate instead?"; then
+      WIZARD_SSL="self-signed"
+    else
+      WIZARD_SSL="none"
+    fi
   else
     WIZARD_DOMAIN=""
-    echo "  → No domain, using IP address"
-
-    # SSL without domain
+    echo "  → Using IP address"
     if _yn "  Enable self-signed HTTPS?"; then
       WIZARD_SSL="self-signed"
     else
