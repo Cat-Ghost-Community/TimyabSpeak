@@ -39,9 +39,11 @@ check_os() {
   [[ "$(uname -m)" == "x86_64" ]] || warn "Arch: $(uname -m) (x86_64 recommended, ARM64 needs libatomic1)"
 }
 check_disk() {
-  local free=$(df /opt --output=avail 2>/dev/null | tail -1)
-  [[ $free -ge 2097152 ]] || err "Need 2GB+ free in /opt (have $((free/1024))MB)"
-  local mem=$(free -m | awk '/^Mem:/{print $2}')
+  local free
+  free=$(df "${TEAMTP_DIR}" --output=avail 2>/dev/null | tail -1) || free=$(df / --output=avail 2>/dev/null | tail -1) || free=2097152
+  [[ $free -ge 2097152 ]] || err "Need 2GB+ free (have $((free/1024))MB)"
+  local mem
+  mem=$(free -m 2>/dev/null | awk '/^Mem:/{print $2}') || mem=512
   [[ $mem -ge 512 ]] || warn "RAM: ${mem}MB (512MB minimum recommended)"
 }
 check_dry_run() { [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1 || DRY_RUN=0; }
@@ -253,6 +255,9 @@ run_wizard() {
     return
   fi
 
+  # Reopen terminal for read prompts (needed when piped via curl | bash)
+  exec </dev/tty 2>/dev/null || true
+
   echo ""
   echo "╔══════════════════════════════════════════════╗"
   echo "║        TimyabSpeak Setup Wizard              ║"
@@ -319,9 +324,11 @@ generate_secrets() {
   SECRET_REFRESH=$(openssl rand -hex 32)
 
   # Use python3 bcrypt to generate proper hash (panel uses bcrypt.compare)
-  PANEL_BCRYPT_HASH=$(python3 -c "
-import bcrypt
-hash = bcrypt.hashpw(b'${WIZARD_ADMIN_PASS}', bcrypt.gensalt(rounds=12))
+  # Pass password via stdin to avoid shell injection in Python string
+  PANEL_BCRYPT_HASH=$(echo "${WIZARD_ADMIN_PASS}" | python3 -c "
+import sys, bcrypt
+pw = sys.stdin.read().strip()
+hash = bcrypt.hashpw(pw.encode(), bcrypt.gensalt(rounds=12))
 print(hash.decode())
 " 2>/dev/null) || PANEL_BCRYPT_HASH=$(openssl passwd -6 "${WIZARD_ADMIN_PASS}" 2>/dev/null || echo "${WIZARD_ADMIN_PASS}")
 
@@ -472,8 +479,7 @@ install_bot_deps() {
 }
 JSON
     fi
-    cd "${TEAMTP_DIR}/bots/${bot_dir}"
-    npm install --silent 2>&1 | tail -1 || warn "npm install failed for ${bot_dir}"
+    (cd "${TEAMTP_DIR}/bots/${bot_dir}" && npm install --silent 2>&1 | tail -1) || warn "npm install failed for ${bot_dir}"
   done
   log "Bot dependencies installed"
 }
@@ -537,8 +543,7 @@ install_panel() {
 JSON
   fi
 
-  cd "${TEAMTP_DIR}/panel"
-  npm install --silent 2>&1 | tail -1 || warn "Panel npm install failed"
+  (cd "${TEAMTP_DIR}/panel" && npm install --silent 2>&1 | tail -1) || warn "Panel npm install failed"
 
   cat > /etc/systemd/system/teamtp-panel.service <<UNIT
 [Unit]
@@ -671,7 +676,7 @@ cmd_update() {
   done
 
   systemctl daemon-reload
-  for svc in teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot teamtp-panel; do
+  for svc in teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
     systemctl restart "$svc" 2>/dev/null || true
     sleep 1
   done
