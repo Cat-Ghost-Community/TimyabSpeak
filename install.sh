@@ -88,78 +88,85 @@ preflight() {
 }
 
 # ───── STEP 2: WIZARD ─────
+
+# Prompt yes/no, default Yes. Returns 0=yes 1=no.
+_yn() {
+  local prompt="$1" ans
+  read -rp "${prompt} [Y/n]: " ans
+  ans="${ans,,}"
+  [[ -z "$ans" || "$ans" == y* || "$ans" == yes ]] && return 0
+  return 1
+}
+
 wizard() {
   exec </dev/tty 2>/dev/null || true
   echo ""
   echo "========== Setup Wizard =========="
-  echo "Accept [defaults] with Enter | Ctrl+C to cancel"
+  echo "Press Enter to accept [defaults]  |  Ctrl+C to cancel"
   echo ""
 
-  # Domain or IP?
-  echo "Do you have a domain name pointing to this server?"
-  echo "  1) Yes — I have a domain (e.g. myserver.com)"
-  echo "  2) No — use IP address only"
-  read -rp "  Choose [2]: " has_domain
-  has_domain=${has_domain:-2}
-  has_domain=${has_domain,,}
-  case "$has_domain" in
-    1|y|yes|true) HAS_DOMAIN=1 ;;
-    *) HAS_DOMAIN=0 ;;
-  esac
+  # ── DOMAIN ──
+  echo -n "Domain name (e.g. myserver.com) or Enter for IP-only: "
+  read -r WIZARD_DOMAIN
+  WIZARD_DOMAIN="${WIZARD_DOMAIN// /}"
+  if [[ -n "$WIZARD_DOMAIN" ]]; then
+    echo -n "  → Use ${WIZARD_DOMAIN}"
 
-  if [[ "$HAS_DOMAIN" -eq 1 ]]; then
-    while true; do
-      read -rp "  Domain name: " WIZARD_DOMAIN
-      WIZARD_DOMAIN="${WIZARD_DOMAIN// /}"
-      [[ -n "$WIZARD_DOMAIN" ]] && break
-      echo "  Domain cannot be empty."
-    done
-    echo "  SSL:"
-    echo "    1) Let's Encrypt (auto, recommended)"
-    echo "    2) Self-signed certificate"
+    # SSL with domain
+    echo ""
+    echo "  SSL options:"
+    echo "    1) Let's Encrypt (free, auto-renew, recommended)"
+    echo "    2) Self-signed (browser warning, no domain validation needed)"
     echo "    3) No SSL"
-    read -rp "    Choose [1]: " ssl
-    ssl=${ssl:-1}
-    case "$ssl" in
-      2) WIZARD_SSL="self-signed" ;;
-      3) WIZARD_SSL="none" ;;
-      *) WIZARD_SSL="letsencrypt" ;;
+    read -rp "    Which one? [1]: " ssl
+    ssl="${ssl:-1}"
+    case "${ssl,,}" in
+      2|self|self-signed*) WIZARD_SSL="self-signed" ;;
+      3|no|none|skip)       WIZARD_SSL="none" ;;
+      le|letsencrypt|let*)  WIZARD_SSL="letsencrypt" ;;
+      1|*)                  WIZARD_SSL="letsencrypt" ;;
     esac
+    echo "  → SSL: ${WIZARD_SSL}"
   else
     WIZARD_DOMAIN=""
-    echo "  SSL:"
-    echo "    1) Self-signed certificate [default]"
-    echo "    2) No SSL"
-    read -rp "    Choose [1]: " ssl
-    ssl=${ssl:-1}
-    case "$ssl" in
-      2) WIZARD_SSL="none" ;;
-      *) WIZARD_SSL="self-signed" ;;
-    esac
+    echo "  → No domain, using IP address"
+
+    # SSL without domain
+    if _yn "  Enable self-signed HTTPS?"; then
+      WIZARD_SSL="self-signed"
+    else
+      WIZARD_SSL="none"
+    fi
   fi
 
+  echo ""
+
+  # ── SERVER NAME ──
   read -rp "Server name [My Gaming Community]: " tmp
   WIZARD_SERVER_NAME="${tmp:-My Gaming Community}"
 
+  # ── ADMIN ──
   read -rp "Admin username [admin]: " tmp
   WIZARD_ADMIN_USER="${tmp:-admin}"
 
   while true; do
     read -rsp "Admin password (min 8 chars): " tmp; echo
     [[ ${#tmp} -ge 8 ]] && break
-    echo "  Too short."
+    echo "  Too short, try again."
   done
   WIZARD_ADMIN_PASS="$tmp"
 
+  # ── SLOTS ──
   while true; do
     read -rp "Max slots [64]: " tmp
     WIZARD_SLOTS="${tmp:-64}"
     if [[ "$WIZARD_SLOTS" =~ ^[0-9]+$ ]] && [[ "$WIZARD_SLOTS" -ge 1 ]]; then
       break
     fi
-    echo "  Please enter a positive number."
+    echo "  Enter a number (1 or higher)."
   done
 
+  # ── WELCOME ──
   read -rp "Welcome message [Welcome!]: " tmp
   WIZARD_WELCOME="${tmp:-Welcome!}"
 
