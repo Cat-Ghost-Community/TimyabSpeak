@@ -476,7 +476,7 @@ install_deps() {
   _run_spin "Updating package lists" apt-get update -qq || warn "apt update failed, continuing"
 
   # System packages
-  local pkgs=(curl wget nginx openssl ufw fail2ban logrotate iproute2 procps build-essential python3 libsqlite3-dev)
+  local pkgs=(curl wget nginx openssl ufw fail2ban logrotate iproute2 procps build-essential python3 libsqlite3-dev sshpass)
   _run_spin "Installing system packages" apt-get install -y -qq "${pkgs[@]}" || warn "Some packages failed, continuing"
 
   # Node.js 20
@@ -562,6 +562,7 @@ deploy_files() {
     done
 
     find "$TEAMTP_DIR" -type f -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+    find "$TEAMTP_DIR" -type f -name "*.js" -path "*/scripts/*" -exec chmod +x {} \; 2>/dev/null || true
   else
     # ── No local source: clone from repo (handles curl | bash pipe install) ──
     info "No local files found — cloning from repository..."
@@ -894,6 +895,24 @@ setup_systemd() {
       ok "Privilege key captured"
     else
       warn "Could not capture privilege key. Run: journalctl -u teamspeak6 | grep token"
+    fi
+
+    # ── Initialize TS6: real API key + server groups + channels ──
+    local init_key="${TEAMTP_DIR}/scripts/init-ts6-key.sh"
+    local init_config="${TEAMTP_DIR}/scripts/init-ts6-config.js"
+
+    if [[ -f "$init_key" ]]; then
+      _run_spin "Creating TS6 API key" bash "$init_key" "${TEAMTP_DIR}/.env" || {
+        warn "API key creation via SSH failed — bots may not connect"
+        info "Run manually: bash ${init_key}"
+      }
+    fi
+
+    if [[ -f "$init_config" ]]; then
+      _run_spin "Creating server groups & channels" node "$init_config" "${TEAMTP_DIR}/.env" || {
+        warn "Server configuration failed — groups/channels not created"
+        info "Run manually: node ${init_config}"
+      }
     fi
   fi
 
