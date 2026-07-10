@@ -894,6 +894,9 @@ setup_systemd() {
 
   if [[ -n "$(ss -Htln sport = ":${PORT_QUERY}" 2>/dev/null)" ]]; then
     ok "TeamSpeak 3 is running"
+    # Give TS3 a moment to fully initialize after port opens
+    sleep 5
+
     # Capture privilege key
     PRIVILEGE_KEY=$(journalctl -u teamspeak3 --no-pager -n 150 2>/dev/null | grep -oP "token=\K\S+" | head -1 || true)
     if [[ -n "$PRIVILEGE_KEY" ]]; then
@@ -940,6 +943,7 @@ Group=teamspeak
 WorkingDirectory=${TEAMTP_DIR}/server/teamspeak3
 ExecStart=${TEAMTP_DIR}/server/teamspeak3/ts3server inifile=ts3server.ini
 PIDFile=${TEAMTP_DIR}/server/teamspeak3/ts3server.pid
+TimeoutStartSec=120
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536

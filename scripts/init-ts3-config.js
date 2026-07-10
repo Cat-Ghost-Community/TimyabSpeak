@@ -48,6 +48,10 @@ async function waitForTS3(maxRetries) {
   return false;
 }
 
+let createdGroups = 0;
+let skippedGroups = 0;
+let failedGroups = 0;
+
 async function createServerGroups() {
   const rolesFile = path.join(CONFIG_DIR, 'roles.json');
   if (!fs.existsSync(rolesFile)) {
@@ -56,7 +60,14 @@ async function createServerGroups() {
   }
 
   const roles = JSON.parse(fs.readFileSync(rolesFile, 'utf8'));
-  const existing = await ts3.getServerGroups().catch(() => []);
+  let existing;
+  try {
+    existing = await ts3.getServerGroups();
+  } catch (e) {
+    console.log(`[init-ts3-config] Failed to fetch existing groups: ${e.message}`);
+    failedGroups = roles.length;
+    return;
+  }
 
   for (const role of roles) {
     const exists = existing.find(g =>
@@ -64,24 +75,30 @@ async function createServerGroups() {
     );
     if (exists) {
       console.log(`[init-ts3-config] Group exists: ${role.name}`);
+      skippedGroups++;
       continue;
     }
 
     if (role.name === 'Guest') {
-      // TS3 has default Guest group (sgid=8), skip creation
       console.log('[init-ts3-config] Skipping Guest (TS3 default)');
+      skippedGroups++;
       continue;
     }
 
     try {
       await ts3.createServerGroup(role.name, { type: 1 });
       console.log(`[init-ts3-config] Created group: ${role.name}`);
+      createdGroups++;
       await sleep(500);
     } catch (e) {
       console.log(`[init-ts3-config] Failed to create group ${role.name}: ${e.message}`);
+      failedGroups++;
     }
   }
 }
+
+let createdChannels = 0;
+let failedChannels = 0;
 
 async function createChannels() {
   const channelsFile = path.join(CONFIG_DIR, 'channels.json');
@@ -91,9 +108,14 @@ async function createChannels() {
   }
 
   const config = JSON.parse(fs.readFileSync(channelsFile, 'utf8'));
-  const existing = await ts3.getChannels().catch(() => []);
+  let existing;
+  try {
+    existing = await ts3.getChannels();
+  } catch (e) {
+    console.log(`[init-ts3-config] Failed to fetch existing channels: ${e.message}`);
+    return;
+  }
 
-  // TS3 starts with a Default Channel. If more channels exist, skip creation.
   if (existing.length > 1) {
     console.log(`[init-ts3-config] ${existing.length} channels exist, skipping creation`);
     return;
@@ -105,7 +127,8 @@ async function createChannels() {
       const parent = await ts3.createChannel(cat.name, 0, {
         codec: 4, codecQuality: 10, maxClients: 0, permanent: true
       });
-      console.log(`[init-ts3-config] Category: ${cat.name}` + (parent.cid ? ` (cid=${parent.cid})` : ''));
+      console.log(`[init-ts3-config] Category: ${cat.name}`);
+      createdChannels++;
       await sleep(300);
 
       if (cat.channels) {
@@ -120,14 +143,17 @@ async function createChannels() {
               permanent: true
             });
             console.log(`[init-ts3-config]   Channel: ${ch.name}`);
+            createdChannels++;
             await sleep(200);
           } catch (e) {
-            console.log(`[init-ts3-config]   Failed: ${ch.name}: ${e.message}`);
+            console.log(`[init-ts3-config]   Failed channel ${ch.name}: ${e.message}`);
+            failedChannels++;
           }
         }
       }
     } catch (e) {
       console.log(`[init-ts3-config] Failed category ${cat.name}: ${e.message}`);
+      failedChannels++;
     }
   }
 }
@@ -141,9 +167,17 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('[init-ts3-config] TS3 is ready');
+  console.log('[init-ts3-config] TS3 is ready, creating server groups and channels...');
   await createServerGroups();
   await createChannels();
+
+  console.log(`[init-ts3-config] Groups: ${createdGroups} created, ${skippedGroups} skipped, ${failedGroups} failed`);
+  console.log(`[init-ts3-config] Channels: ${createdChannels} created, ${failedChannels} failed`);
+
+  if (failedGroups > 0 || failedChannels > 0) {
+    console.log('[init-ts3-config] Server configuration completed with errors');
+    process.exit(1);
+  }
 
   console.log('[init-ts3-config] Server configuration complete');
 }

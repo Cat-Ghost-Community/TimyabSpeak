@@ -10,6 +10,7 @@ Group=teamspeak
 WorkingDirectory=/opt/teamtp/server/teamspeak3
 ExecStart=/opt/teamtp/server/teamspeak3/ts3server inifile=ts3server.ini
 PIDFile=/opt/teamtp/server/teamspeak3/ts3server.pid
+TimeoutStartSec=120
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
