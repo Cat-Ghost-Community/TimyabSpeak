@@ -825,6 +825,7 @@ filetransfer_ip=0.0.0.0
 query_port=${PORT_QUERY}
 query_ip=127.0.0.1
 query_ip_whitelist=127.0.0.1
+pid_file=ts3server.pid
 serveradmin_password=${SECRET_QUERY_PASS}
 dbplugin=ts3db_sqlite3
 dbpluginparameter=ts3db_sqlite3
@@ -876,7 +877,8 @@ setup_systemd() {
   systemctl daemon-reload 2>/dev/null || true
   _cmd systemctl enable teamspeak3 || warn "Failed to enable teamspeak3"
 
-  # Start TS3
+  # Start TS3 — remove stale PID first (prevents "already running" error)
+  rm -f "${TEAMTP_DIR}/server/teamspeak3/ts3server.pid" 2>/dev/null || true
   _run_spin "Starting TeamSpeak 3" systemctl start teamspeak3 || warn "TS3 failed to start"
 
   # Wait for TS3 query port

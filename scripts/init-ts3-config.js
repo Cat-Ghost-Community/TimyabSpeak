@@ -36,9 +36,12 @@ async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function waitForTS3(maxRetries) {
   for (let i = 0; i < maxRetries; i++) {
     try {
+      ts3.disconnect();
       const ok = await ts3.health();
       if (ok) return true;
-    } catch (e) {}
+    } catch (e) {
+      console.log(`[init-ts3-config] TS3 not ready: ${e.message}`);
+    }
     console.log(`[init-ts3-config] Waiting for TS3... (${i + 1}/${maxRetries})`);
     await sleep(2000);
   }

@@ -68,19 +68,22 @@ class TS3Client {
   }
 
   async _waitForBanner() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const maxAttempts = 100; // 10 seconds
       const check = () => {
-        // TS3 sends "TS3" line then "Welcome to the TeamSpeak 3..." then prompts
+        if (++attempts > maxAttempts) {
+          reject(new Error('TS3 banner timeout'));
+          return;
+        }
         if (this._buffer.includes('TS3') && this._buffer.includes('\n')) {
           const lines = this._buffer.split('\n');
-          // Banner ends when no "error" line follows and we see a known pattern
           if (lines.length >= 2) {
             this._buffer = '';
             resolve();
             return;
           }
         }
-        // Retry after short delay
         setTimeout(check, 100);
       };
       check();
