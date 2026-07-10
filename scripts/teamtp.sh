@@ -155,10 +155,13 @@ cmd_panel() {
   [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
 
   local voice_addr
+  local vport="${PORT_VOICE:-9987}"
   if [[ -n "${VOICE_DOMAIN:-}" ]]; then
-    voice_addr="${VOICE_DOMAIN}:${PORT_VOICE:-9987}"
+    voice_addr="${VOICE_DOMAIN}"
+    [[ "$vport" != "9987" ]] && voice_addr="${voice_addr}:${vport}"
   else
-    voice_addr="${ip}:${PORT_VOICE:-9987}"
+    voice_addr="${ip}"
+    [[ "$vport" != "9987" ]] && voice_addr="${voice_addr}:${vport}"
   fi
 
   local panel_url

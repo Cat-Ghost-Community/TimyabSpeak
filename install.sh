@@ -1081,12 +1081,43 @@ cmd_panel() {
   local ip proto="http"
   ip=$(hostname -I 2>/dev/null | awk '{print $1}') || ip="<server-ip>"
   [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
-  echo "Panel access:"
-  echo "  Local:     http://localhost:${PORT_PANEL:-3000}"
-  echo "  External:  ${proto}://${ip}"
-  if [[ -n "${WIZARD_DOMAIN:-}" ]]; then
-    echo "  Domain:    ${proto}://${WIZARD_DOMAIN}"
+
+  local voice_addr
+  if [[ -n "${VOICE_DOMAIN:-}" ]]; then
+    voice_addr="${VOICE_DOMAIN}"
+  else
+    voice_addr="${ip}"
   fi
+  [[ "${PORT_VOICE:-9987}" != "9987" ]] && voice_addr="${voice_addr}:${PORT_VOICE}"
+
+  local panel_url
+  if [[ -n "${WIZARD_DOMAIN:-}" ]]; then
+    panel_url="${proto}://${WIZARD_DOMAIN}"
+  else
+    panel_url="${proto}://${ip}"
+  fi
+
+  local ssl_label="${WIZARD_SSL:-none}"
+  [[ "$ssl_label" == "letsencrypt" ]] && ssl_label="Let's Encrypt"
+  [[ "$ssl_label" == "self-signed" ]] && ssl_label="Self-signed"
+
+  echo ""
+  echo "  Voice Server:    ${voice_addr}"
+  echo "  Web Panel:       ${panel_url}"
+  echo "  Local Panel:     http://localhost:${PORT_PANEL:-3000}"
+  echo ""
+  echo "  Server:          ${WIZARD_SERVER_NAME:-?}"
+  echo "  Slots:           ${WIZARD_SLOTS:-?}"
+  echo "  SSL:             ${ssl_label}"
+  echo "  Admin:           ${PANEL_ADMIN_USER:-?}"
+  echo ""
+
+  for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+    local state
+    state=$(systemctl is-active "$s" 2>/dev/null || echo "inactive")
+    printf "  %-25s %s\n" "$s" "$state"
+  done
+  echo ""
 }
 
 cmd_ssl() {
@@ -1457,10 +1488,11 @@ print_summary() {
 
   local voice_addr
   if [[ -n "${WIZARD_VOICE_DOMAIN:-}" ]]; then
-    voice_addr="${WIZARD_VOICE_DOMAIN}:${PORT_VOICE}"
+    voice_addr="${WIZARD_VOICE_DOMAIN}"
   else
-    voice_addr="${ip}:${PORT_VOICE}"
+    voice_addr="${ip}"
   fi
+  [[ "${PORT_VOICE}" != "9987" ]] && voice_addr="${voice_addr}:${PORT_VOICE}"
 
   local proto="http"
   [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
