@@ -233,7 +233,7 @@ show_help() {
   echo "  sudo bash install.sh"
   echo "  sudo bash install.sh --dry-run"
   echo "  TEAMTP_DOMAIN=myserver.com TEAMTP_ADMIN_PASS=secret sudo -E bash install.sh --non-interactive"
-  echo "  TS3_URL="${TS3_URL:-https://files.teamspeak-services.com/releases/server/3.13.7/teamspeak3-server_linux_amd64-3.13.7.tar.bz2}"
+  echo "  TS3_URL               Custom TS3 download URL"
 }
 
 parse_args() {
@@ -767,7 +767,7 @@ install_ts3() {
 
       _run_spin "Downloading TeamSpeak 3 server" curl -fsSL --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 5 -o "$tmp" "$TS3_URL" || {
         rm -rf "$tmp" "$extract_dir"
-        fail "Download failed (404 or network). TS3 download URL may have changed. Override: TS3_URL="${TS3_URL:-https://files.teamspeak-services.com/releases/server/3.13.7/teamspeak3-server_linux_amd64-3.13.7.tar.bz2}"
+        fail "Download failed (404 or network). TS3 download URL may have changed. Override: TS3_URL=<url> sudo -E bash install.sh"
       }
       [[ -s "$tmp" ]] || { rm -rf "$tmp" "$extract_dir"; fail "Downloaded file is empty. The TS3 download URL may be invalid."; }
 
