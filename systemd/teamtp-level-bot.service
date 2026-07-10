@@ -1,7 +1,7 @@
 [Unit]
 Description=TeamTP Level-Up Bot
-After=teamspeak6.service
-Wants=teamspeak6.service
+After=teamspeak3.service
+Wants=teamspeak3.service
 
 [Service]
 Type=simple

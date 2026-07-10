@@ -13,7 +13,7 @@ fail2ban-client status 2>/dev/null | head -5 || echo "  fail2ban not running"
 
 echo ""
 echo "[•] Services:"
-for svc in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+for svc in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
   state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
   echo "  $svc: $state"
 done
@@ -35,7 +35,7 @@ fi
 
 echo ""
 echo "[•] Users:"
-for u in tsserver teamtp; do
+for u in teamspeak teamtp; do
   id "$u" &>/dev/null && echo "  $u: exists" || echo "  $u: missing"
 done
 

@@ -1,4 +1,4 @@
-const { TS6Client } = require('../../shared/ts6-rest');
+const { TS3Client } = require('../../shared/ts3-query');
 const Database = require('better-sqlite3');
 const path = require('path');
 
@@ -26,9 +26,10 @@ const ROLE_GROUP_NAMES = ['Guest', 'Member', 'Veteran', 'Elite'];
 
 class LevelBot {
   constructor() {
-    this.ts6 = new TS6Client({
-      baseUrl: process.env.TS6_BASE_URL || 'http://127.0.0.1:10080',
-      apiKey: process.env.TS6_API_KEY || ''
+    this.ts3 = new TS3Client({
+      host: process.env.TS3_QUERY_HOST || '127.0.0.1',
+      port: parseInt(process.env.TS3_QUERY_PORT || '10011'),
+      password: process.env.TS3_QUERY_PASSWORD || ''
     });
     this.db = new Database(path.join(__dirname, 'data.sqlite'));
     this.db.pragma('journal_mode = WAL');
@@ -89,7 +90,7 @@ class LevelBot {
 
   async _syncServerGroups() {
     try {
-      const groups = await this.ts6.getServerGroups();
+      const groups = await this.ts3.getServerGroups();
       this._serverGroupCache = groups;
     } catch (err) {
       console.error('[LevelBot] Server group sync error:', err.message);
@@ -106,7 +107,7 @@ class LevelBot {
 
   async _tick() {
     try {
-      const clients = await this.ts6.getClients();
+      const clients = await this.ts3.getClients();
       const voiceClients = clients.filter(c => c.client_type === 0 && c.cid > 0);
       const now = Math.floor(Date.now() / 1000);
 
@@ -161,7 +162,7 @@ class LevelBot {
             lastHourBonus: 0
           });
           try {
-            const channelClients = await this.ts6.getChannelClients(client.cid);
+            const channelClients = await this.ts3.getChannelClients(client.cid);
             const count = channelClients.length;
             if (count >= 5) {
               const achievements = this.db.prepare('SELECT achievement_id FROM achievements WHERE user_id = ?').all(user.id).map(a => a.achievement_id);
@@ -245,7 +246,7 @@ class LevelBot {
     let targetRole = this.getGroupByName(currentRole.role);
     if (!targetRole) return;
 
-    const userGroups = await this.ts6.getServerGroups();
+    const userGroups = await this.ts3.getServerGroups();
     const groupList = Array.isArray(userGroups) ? userGroups : [];
     const hasRole = groupList.some(g => g.sgid == targetRole.sgid && g.cldbid == client.cldbid);
 
@@ -253,10 +254,10 @@ class LevelBot {
       for (const rn of ROLE_GROUP_NAMES) {
         const rg = this.getGroupByName(rn);
         if (rg) {
-          try { await this.ts6.removeClientFromServerGroup(rg.sgid, client.cldbid); } catch {}
+          try { await this.ts3.removeClientFromServerGroup(rg.sgid, client.cldbid); } catch {}
         }
       }
-      await this.ts6.addClientToServerGroup(targetRole.sgid, client.cldbid);
+      await this.ts3.addClientToServerGroup(targetRole.sgid, client.cldbid);
       console.log(`[LevelBot] ${client.client_nickname} → ${currentRole.role}`);
 
       if (currentRole.role === 'Veteran') {
@@ -268,7 +269,7 @@ class LevelBot {
 
       const channel = await this._findChannel('🏆 Leaderboard');
       if (channel) {
-        await this.ts6.sendChannelMessage(channel.cid,
+        await this.ts3.sendChannelMessage(channel.cid,
           `🎉 ${client.client_nickname} reached ${currentRole.role}! [${user.xp} XP]`
         );
       }
@@ -334,10 +335,10 @@ class LevelBot {
         content += `${icon} ${u.name || 'Unknown'} — ${u.xp} XP\n`;
       });
 
-      const channels = await this.ts6.getChannels();
+      const channels = await this.ts3.getChannels();
       const ch = channels.find(c => c.cid == channel.cid);
       if (ch && ch.channel_topic !== content) {
-        await this.ts6.editChannel(channel.cid, { channel_topic: content.substring(0, 200) });
+        await this.ts3.editChannel(channel.cid, { channel_topic: content.substring(0, 200) });
       }
     } catch (err) {
       console.error('[LevelBot] Leaderboard update error:', err.message);
@@ -346,7 +347,7 @@ class LevelBot {
 
   async _findChannel(name) {
     try {
-      const channels = await this.ts6.getChannels();
+      const channels = await this.ts3.getChannels();
       return channels.find(c => c.channel_name.includes(name)) || null;
     } catch { return null; }
   }
@@ -381,7 +382,7 @@ class LevelBot {
     if (!user) return null;
     await this._addXp(user.id, amount, source);
     user.xp += amount;
-    const clients = await this.ts6.getClients();
+    const clients = await this.ts3.getClients();
     const client = clients.find(c => c.client_unique_identifier === uid);
     if (client) await this._checkRoleUpgrade(client, user);
     return { ...user, xp: user.xp + amount };
@@ -391,7 +392,7 @@ class LevelBot {
     const user = this.getUserByUid(uid);
     if (!user) return null;
     this.db.prepare('UPDATE users SET xp = ? WHERE client_uid = ?').run(amount, uid);
-    const clients = await this.ts6.getClients();
+    const clients = await this.ts3.getClients();
     const client = clients.find(c => c.client_unique_identifier === uid);
     if (client) await this._checkRoleUpgrade(client, { ...user, xp: amount });
     return { ...user, xp: amount };

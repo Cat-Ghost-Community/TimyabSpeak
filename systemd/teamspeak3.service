@@ -1,0 +1,19 @@
+[Unit]
+Description=TeamSpeak 3 Server
+After=network.target
+Wants=network.target
+
+[Service]
+Type=forking
+User=teamspeak
+Group=teamspeak
+WorkingDirectory=/opt/teamtp/server/teamspeak3
+ExecStart=/opt/teamtp/server/teamspeak3/ts3server inifile=ts3server.ini
+PIDFile=/opt/teamtp/server/teamspeak3/ts3server.pid
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

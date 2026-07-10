@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TimyabSpeak — TeamSpeak 6 One-Command Installer
+# TimyabSpeak — TeamSpeak 3 One-Command Installer
 # Version: 2.0.0
 set -euo pipefail
 shopt -s inherit_errexit 2>/dev/null || true
@@ -10,7 +10,7 @@ INSTALL_VERSION="2.0.0"
 INSTALL_LOG="/var/log/teamtp-install.log"
 TEAMTP_DIR="/opt/teamtp"
 MARKER="${TEAMTP_DIR}/.installed"
-TS6_URL="${TS6_URL:-https://github.com/teamspeak/teamspeak6-server/releases/download/v6.0.0-beta11/teamspeak6-server-linux-amd64.tar.xz}"
+TS3_URL="${TS3_URL:-https://files.teamspeak-services.com/releases/server/3.13.7/teamspeak3-server_linux_amd64-3.13.7.tar.bz2}"
 TEAMTP_REPO="${TEAMTP_REPO:-}"
 SRC_DIR="${SRC_DIR:-$PWD}"
 DRY_RUN="${DRY_RUN:-false}"
@@ -124,16 +124,16 @@ cleanup_on_failure() {
   case "${_CURRENT_PHASE}" in
     1|2) ;;  # preflight/wizard: nothing to clean
     3) ;;    # deps: leave packages installed
-    4) userdel tsserver 2>/dev/null || true; userdel teamtp 2>/dev/null || true ;;
+    4) userdel teamspeak 2>/dev/null || true; userdel teamtp 2>/dev/null || true ;;
     5|6) rm -rf "$TEAMTP_DIR" ;;
     7) rm -f "${TEAMTP_DIR}/.env" ;;
-    8) rm -rf "${TEAMTP_DIR}/server/teamspeak6" ;;
+    8) rm -rf "${TEAMTP_DIR}/server/teamspeak3" ;;
     9)
-      for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+      for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
         systemctl stop "$s" 2>/dev/null || true
         systemctl disable "$s" 2>/dev/null || true
       done
-      rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
+      rm -f /etc/systemd/system/teamspeak3.service /etc/systemd/system/teamtp-*.service
       systemctl daemon-reload 2>/dev/null || true
       ;;
     10) rm -f /usr/local/bin/teamtp ;;
@@ -144,16 +144,16 @@ cleanup_on_failure() {
       ;;
     12|13|14) ;; # firewall/logrotate/summary: nothing to clean
     *)
-      for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+      for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
         systemctl stop "$s" 2>/dev/null || true
         systemctl disable "$s" 2>/dev/null || true
       done
-      rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
+      rm -f /etc/systemd/system/teamspeak3.service /etc/systemd/system/teamtp-*.service
       systemctl daemon-reload 2>/dev/null || true
       rm -f /etc/nginx/sites-available/teamtp /etc/nginx/sites-available/teamtp-ssl
       rm -f /etc/nginx/sites-enabled/teamtp /etc/nginx/sites-enabled/teamtp-ssl
       rm -rf "$TEAMTP_DIR" /usr/local/bin/teamtp
-      userdel tsserver 2>/dev/null || true; userdel teamtp 2>/dev/null || true
+      userdel teamspeak 2>/dev/null || true; userdel teamtp 2>/dev/null || true
       ;;
   esac
   for p in $(seq "${_CURRENT_PHASE}" "$PHASE_TOTAL" 2>/dev/null); do
@@ -196,7 +196,7 @@ show_header() {
   echo ""
   echo -e "  ${BOLD}${GREEN}╔══════════════════════════════════════════════╗${NC}"
   echo -e "  ${BOLD}${GREEN}║${NC}                                              ${BOLD}${GREEN}║${NC}"
-  echo -e "  ${BOLD}${GREEN}║${NC}   ${BOLD}TimyabSpeak — TeamSpeak 6 Installer${NC}       ${BOLD}${GREEN}║${NC}"
+  echo -e "  ${BOLD}${GREEN}║${NC}   ${BOLD}TimyabSpeak — TeamSpeak 3 Installer${NC}       ${BOLD}${GREEN}║${NC}"
   echo -e "  ${BOLD}${GREEN}║${NC}   ${DIM}Version ${INSTALL_VERSION}${NC}                              ${BOLD}${GREEN}║${NC}"
   echo -e "  ${BOLD}${GREEN}║${NC}                                              ${BOLD}${GREEN}║${NC}"
   echo -e "  ${BOLD}${GREEN}╚══════════════════════════════════════════════╝${NC}"
@@ -225,14 +225,14 @@ show_help() {
   echo "  TEAMTP_ADMIN_PASS     Admin password (min 8 chars)"
   echo "  TEAMTP_SLOTS          Max client slots"
   echo "  TEAMTP_WELCOME        Welcome message"
-  echo "  TS6_URL               Custom TS6 download URL"
+  echo "  TS3_URL               Custom TS3 download URL"
   echo "  TEAMTP_REPO           Custom git repo for deployment"
   echo ""
   echo "Examples:"
   echo "  sudo bash install.sh"
   echo "  sudo bash install.sh --dry-run"
   echo "  TEAMTP_DOMAIN=myserver.com TEAMTP_ADMIN_PASS=secret sudo -E bash install.sh --non-interactive"
-  echo "  TS6_URL=https://mirror.example.com/ts6.tar.gz sudo -E bash install.sh"
+  echo "  TS3_URL="${TS3_URL:-https://files.teamspeak-services.com/releases/server/3.13.7/teamspeak3-server_linux_amd64-3.13.7.tar.bz2}"
 }
 
 parse_args() {
@@ -284,7 +284,7 @@ preflight() {
     ok "Architecture: x86_64"
   elif [[ "$arch" == "aarch64" ]]; then
     ok "Architecture: ARM64"
-    warn "ARM64 may need libatomic1. Install manually if TS6 fails to start."
+    warn "ARM64 may need libatomic1. Install manually if TS3 fails to start."
   else
     fail "Unsupported architecture: ${arch}. Only x86_64 and aarch64 are supported."
   fi
@@ -296,10 +296,10 @@ preflight() {
     if awk "BEGIN{exit !($glibc_ver >= 2.32)}"; then
       ok "glibc: ${glibc_ver} (>= 2.32 required)"
     else
-      fail "glibc ${glibc_ver} is too old. TeamSpeak 6 requires glibc >= 2.32. Upgrade to Ubuntu 22.04+ / Debian 12+."
+      fail "glibc ${glibc_ver} is too old. TeamSpeak 3 requires glibc >= 2.32. Upgrade to Ubuntu 22.04+ / Debian 12+."
     fi
   else
-    warn "Could not determine glibc version. TeamSpeak 6 requires glibc >= 2.32."
+    warn "Could not determine glibc version. TeamSpeak 3 requires glibc >= 2.32."
   fi
 
   # RAM
@@ -509,10 +509,10 @@ create_users() {
   step 4 $PHASE_TOTAL "System users"
 
   if [[ "$DRY_RUN" != "true" ]]; then
-    id -u tsserver &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin tsserver
+    id -u teamspeak &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin teamspeak
     id -u teamtp &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin teamtp
   fi
-  ok "Users: tsserver, teamtp"
+  ok "Users: teamspeak, teamtp"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -584,8 +584,8 @@ deploy_files() {
   if [[ ! -f "${TEAMTP_DIR}/panel/server.js" ]]; then
     fail "Deployment verification failed: panel/server.js not found in ${TEAMTP_DIR}"
   fi
-  if [[ ! -f "${TEAMTP_DIR}/shared/ts6-rest.js" ]]; then
-    fail "Deployment verification failed: shared/ts6-rest.js not found in ${TEAMTP_DIR}"
+  if [[ ! -f "${TEAMTP_DIR}/shared/ts3-query.js" ]]; then
+    fail "Deployment verification failed: shared/ts3-query.js not found in ${TEAMTP_DIR}"
   fi
 
   ok "Files deployed to ${TEAMTP_DIR}"
@@ -662,7 +662,6 @@ generate_secrets() {
   step 7 $PHASE_TOTAL "Generating secrets"
 
   SECRET_QUERY_PASS=$(openssl rand -hex 16)
-  SECRET_API_KEY=$(openssl rand -hex 32)
   SECRET_JWT=$(openssl rand -hex 32)
   SECRET_REFRESH=$(openssl rand -hex 32)
 
@@ -681,19 +680,16 @@ try {
   # Port scanning (exact match using ss)
   PORT_VOICE=$(find_port 9987 20 udp)   || fail "No free UDP voice port in range 9987-10007"
   PORT_FILE=$(find_port 30033 10 tcp)   || fail "No free file transfer port in range 30033-30043"
-  PORT_SSH_QUERY=$(find_port 10022 10 tcp)  || fail "No free SSH query port in range 10022-10032"
-  PORT_HTTP_QUERY=$(find_port 10080 10 tcp) || fail "No free HTTP query port in range 10080-10090"
+  PORT_QUERY=$(find_port 10011 10 tcp)  || fail "No free query port in range 10011-10021"
   PORT_PANEL=$(find_port 3000 10 tcp)    || fail "No free panel port in range 3000-3010"
 
-  ok "Ports: Voice=${PORT_VOICE} File=${PORT_FILE} Query=${PORT_HTTP_QUERY} Panel=${PORT_PANEL}"
+  ok "Ports: Voice=${PORT_VOICE} File=${PORT_FILE} Query=${PORT_QUERY} Panel=${PORT_PANEL}"
 
   if [[ "$DRY_RUN" != "true" ]]; then
     {
-      printf 'TS6_BASE_URL=http://127.0.0.1:%s\n' "$PORT_HTTP_QUERY"
-      printf 'TS6_API_KEY=%s\n' "$SECRET_API_KEY"
-      printf 'TS6_QUERY_HOST=127.0.0.1\n'
-      printf 'TS6_QUERY_PORT=%s\n' "$PORT_SSH_QUERY"
-      printf 'TS6_QUERY_PASSWORD=%s\n' "$SECRET_QUERY_PASS"
+      printf 'TS3_QUERY_HOST=127.0.0.1\n'
+      printf 'TS3_QUERY_PORT=%s\n' "$PORT_QUERY"
+      printf 'TS3_QUERY_PASSWORD=%s\n' "$SECRET_QUERY_PASS"
       printf 'PANEL_PORT=%s\n' "$PORT_PANEL"
       printf 'PANEL_BIND=127.0.0.1\n'
       printf 'PANEL_JWT_SECRET=%s\n' "$SECRET_JWT"
@@ -707,8 +703,7 @@ try {
       printf 'TEAMTP_VERSION=%s\n' "$INSTALL_VERSION"
       printf 'PORT_VOICE=%s\n' "$PORT_VOICE"
       printf 'PORT_FILE=%s\n' "$PORT_FILE"
-      printf 'PORT_SSH_QUERY=%s\n' "$PORT_SSH_QUERY"
-      printf 'PORT_HTTP_QUERY=%s\n' "$PORT_HTTP_QUERY"
+      printf 'PORT_QUERY=%s\n' "$PORT_QUERY"
       printf 'PORT_PANEL=%s\n' "$PORT_PANEL"
     } > "${TEAMTP_DIR}/.env"
     chmod 600 "${TEAMTP_DIR}/.env"
@@ -739,14 +734,14 @@ find_port() {
 }
 
 # ══════════════════════════════════════════════════════════════════
-# PHASE 8: TeamSpeak 6 Server
+# PHASE 8: TeamSpeak 3 Server
 # ══════════════════════════════════════════════════════════════════
 
-install_ts6() {
-  step 8 $PHASE_TOTAL "TeamSpeak 6 server"
+install_ts3() {
+  step 8 $PHASE_TOTAL "TeamSpeak 3 server"
 
-  local ts_dir="${TEAMTP_DIR}/server/teamspeak6"
-  local ts_bin="tsserver"
+  local ts_dir="${TEAMTP_DIR}/server/teamspeak3"
+  local ts_bin="ts3server"
 
   if [[ "$DRY_RUN" != "true" ]]; then
     mkdir -p "$ts_dir"
@@ -756,11 +751,11 @@ install_ts6() {
       tmp="$(mktemp)"
       extract_dir="$(mktemp -d)"
 
-      _run_spin "Downloading TeamSpeak 6 server" curl -fsSL --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 5 -o "$tmp" "$TS6_URL" || {
+      _run_spin "Downloading TeamSpeak 3 server" curl -fsSL --connect-timeout 10 --max-time 300 --retry 3 --retry-delay 5 -o "$tmp" "$TS3_URL" || {
         rm -rf "$tmp" "$extract_dir"
-        fail "Download failed (404 or network). TS6 beta URL may have changed. Override: TS6_URL=<url> sudo -E bash install.sh"
+        fail "Download failed (404 or network). TS3 download URL may have changed. Override: TS3_URL="${TS3_URL:-https://files.teamspeak-services.com/releases/server/3.13.7/teamspeak3-server_linux_amd64-3.13.7.tar.bz2}"
       }
-      [[ -s "$tmp" ]] || { rm -rf "$tmp" "$extract_dir"; fail "Downloaded file is empty. The TS6 URL may be invalid."; }
+      [[ -s "$tmp" ]] || { rm -rf "$tmp" "$extract_dir"; fail "Downloaded file is empty. The TS3 download URL may be invalid."; }
 
       # Extract to temp dir to inspect structure
       if ! tar -xaf "$tmp" -C "$extract_dir" 2>/dev/null; then
@@ -770,7 +765,7 @@ install_ts6() {
       rm -f "$tmp"
 
       # Log structure for debugging
-      echo "[TS6 archive contents]" >> "$INSTALL_LOG"
+      echo "[TS3 archive contents]" >> "$INSTALL_LOG"
       find "$extract_dir" -type f 2>/dev/null | head -30 >> "$INSTALL_LOG" || true
       echo "" >> "$INSTALL_LOG"
 
@@ -790,16 +785,16 @@ install_ts6() {
 
       # Find the server binary
       local found
-      found=$(find "$ts_dir" -maxdepth 3 -type f -executable \( -name "tsserver" -o -name "teamspeak6-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
-      [[ -z "$found" ]] && found=$(find "$ts_dir" -maxdepth 3 -type f \( -name "tsserver" -o -name "teamspeak6-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
+      found=$(find "$ts_dir" -maxdepth 3 -type f -executable \( -name "ts3server" -o -name "teamspeak3-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
+      [[ -z "$found" ]] && found=$(find "$ts_dir" -maxdepth 3 -type f \( -name "ts3server" -o -name "teamspeak3-server" -o -name "teamspeak*server" \) -print -quit 2>/dev/null)
       if [[ -n "$found" ]]; then
         chmod +x "$found"
         [[ "$(basename "$found")" != "$ts_bin" ]] && ln -sf "$(basename "$found")" "${ts_dir}/${ts_bin}"
-        ok "TS6 binary: $(basename "$found")"
+        ok "TS3 binary: $(basename "$found")"
       elif [[ -f "${ts_dir}/${ts_bin}" ]]; then
         chmod +x "${ts_dir}/${ts_bin}"
       else
-        fail "TS6 server binary not found after extraction. See log for archive contents."
+        fail "TS3 server binary not found after extraction. See log for archive contents."
       fi
     fi
 
@@ -807,34 +802,29 @@ install_ts6() {
     mkdir -p "${ts_dir}/sql" "${ts_dir}/sql/create_sqlite"
 
     # Write config
-    cat > "${ts_dir}/tsserver.yaml" <<YAML
-server:
-  license-path: .
-  accept-license: accept
-  default-voice-port: ${PORT_VOICE}
-  voice-ip: ["0.0.0.0"]
-  filetransfer-port: ${PORT_FILE}
-  filetransfer-ip: "0.0.0.0"
-  query:
-    ssh:
-      enable: 1
-      port: ${PORT_SSH_QUERY}
-      ip: "127.0.0.1"
-    http:
-      enable: 1
-      port: ${PORT_HTTP_QUERY}
-      ip: "127.0.0.1"
-    admin-password: "${SECRET_QUERY_PASS}"
-  database:
-    plugin: sqlite3
-    sql-path: ${ts_dir}/sql/
-    sql-create-path: ${ts_dir}/sql/create_sqlite/
-YAML
+    cat > "${ts_dir}/ts3server.ini" <<INI
+machine_id=
+default_voice_port=${PORT_VOICE}
+voice_ip=0.0.0.0
+filetransfer_port=${PORT_FILE}
+filetransfer_ip=0.0.0.0
+query_port=${PORT_QUERY}
+query_ip=127.0.0.1
+query_ip_whitelist=127.0.0.1
+serveradmin_password=${SECRET_QUERY_PASS}
+dbplugin=ts3db_sqlite3
+dbpluginparameter=ts3db_sqlite3
+dbsqlpath=sql/
+dbsqlcreatepath=create_sqlite/
+logpath=logs/
+logquerycommands=0
+license_accepted=1
+INI
 
-    chown -R tsserver:tsserver "$ts_dir" 2>/dev/null || true
+    chown -R teamspeak:teamspeak "$ts_dir" 2>/dev/null || true
   fi
 
-  ok "TeamSpeak 6 server configured"
+  ok "TeamSpeak 3 server configured"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -870,43 +860,35 @@ setup_systemd() {
   fi
 
   systemctl daemon-reload 2>/dev/null || true
-  _cmd systemctl enable teamspeak6 || warn "Failed to enable teamspeak6"
+  _cmd systemctl enable teamspeak3 || warn "Failed to enable teamspeak3"
 
-  # Start TS6
-  _run_spin "Starting TeamSpeak 6" systemctl start teamspeak6 || warn "TS6 failed to start"
+  # Start TS3
+  _run_spin "Starting TeamSpeak 3" systemctl start teamspeak3 || warn "TS3 failed to start"
 
-  # Wait for TS6 HTTP query port
+  # Wait for TS3 query port
   local waited=0 max_wait=60
-  while [[ -z "$(ss -Htln sport = ":${PORT_HTTP_QUERY}" 2>/dev/null)" ]]; do
+  while [[ -z "$(ss -Htln sport = ":${PORT_QUERY}" 2>/dev/null)" ]]; do
     sleep 2
     waited=$((waited + 2))
     if [[ $waited -ge $max_wait ]]; then
-      warn "TS6 did not start within ${max_wait}s. Check: journalctl -u teamspeak6"
+      warn "TS3 did not start within ${max_wait}s. Check: journalctl -u teamspeak3"
       break
     fi
   done
 
-  if [[ -n "$(ss -Htln sport = ":${PORT_HTTP_QUERY}" 2>/dev/null)" ]]; then
-    ok "TeamSpeak 6 is running"
+  if [[ -n "$(ss -Htln sport = ":${PORT_QUERY}" 2>/dev/null)" ]]; then
+    ok "TeamSpeak 3 is running"
     # Capture privilege key
-    PRIVILEGE_KEY=$(journalctl -u teamspeak6 --no-pager -n 150 2>/dev/null | grep -oP "token=\K\S+" | head -1 || true)
+    PRIVILEGE_KEY=$(journalctl -u teamspeak3 --no-pager -n 150 2>/dev/null | grep -oP "token=\K\S+" | head -1 || true)
     if [[ -n "$PRIVILEGE_KEY" ]]; then
-      printf 'TS6_PRIVILEGE_KEY=%s\n' "$PRIVILEGE_KEY" >> "${TEAMTP_DIR}/.env"
+      printf 'TS3_PRIVILEGE_KEY=%s\n' "$PRIVILEGE_KEY" >> "${TEAMTP_DIR}/.env"
       ok "Privilege key captured"
     else
-      warn "Could not capture privilege key. Run: journalctl -u teamspeak6 | grep token"
+      warn "Could not capture privilege key. Run: journalctl -u teamspeak3 | grep token"
     fi
 
-    # ── Initialize TS6: real API key + server groups + channels ──
-    local init_key="${TEAMTP_DIR}/scripts/init-ts6-key.sh"
-    local init_config="${TEAMTP_DIR}/scripts/init-ts6-config.js"
-
-    if [[ -f "$init_key" ]]; then
-      _run_spin "Creating TS6 API key" bash "$init_key" "${TEAMTP_DIR}/.env" || {
-        warn "API key creation via SSH failed — bots may not connect"
-        info "Run manually: bash ${init_key}"
-      }
-    fi
+    # ── Initialize TS3: server groups + channels via ServerQuery ──
+    local init_config="${TEAMTP_DIR}/scripts/init-ts3-config.js"
 
     if [[ -f "$init_config" ]]; then
       _run_spin "Creating server groups & channels" node "$init_config" "${TEAMTP_DIR}/.env" || {
@@ -928,24 +910,23 @@ setup_systemd() {
 }
 
 _write_systemd_units_inline() {
-  # TS6 service
-  cat > /etc/systemd/system/teamspeak6.service <<UNIT
+  # TS3 service
+  cat > /etc/systemd/system/teamspeak3.service <<UNIT
 [Unit]
-Description=TeamSpeak 6 Server
+Description=TeamSpeak 3 Server
 After=network.target
 Wants=network.target
 
 [Service]
-Type=simple
-User=tsserver
-Group=tsserver
-WorkingDirectory=${TEAMTP_DIR}/server/teamspeak6
-ExecStart=${TEAMTP_DIR}/server/teamspeak6/tsserver --config-file ${TEAMTP_DIR}/server/teamspeak6/tsserver.yaml
-ExecStop=/bin/kill -SIGTERM \$MAINPID
+Type=forking
+User=teamspeak
+Group=teamspeak
+WorkingDirectory=${TEAMTP_DIR}/server/teamspeak3
+ExecStart=${TEAMTP_DIR}/server/teamspeak3/ts3server inifile=ts3server.ini
+PIDFile=${TEAMTP_DIR}/server/teamspeak3/ts3server.pid
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
-LimitNPROC=4096
 TimeoutStopSec=30
 
 [Install]
@@ -959,8 +940,8 @@ UNIT
     cat > "/etc/systemd/system/teamtp-${name}-bot.service" <<UNIT
 [Unit]
 Description=TeamTP ${name^} Bot
-After=teamspeak6.service
-Wants=teamspeak6.service
+After=teamspeak3.service
+Wants=teamspeak3.service
 
 [Service]
 Type=simple
@@ -982,8 +963,8 @@ UNIT
   cat > /etc/systemd/system/teamtp-panel.service <<UNIT
 [Unit]
 Description=TeamTP Web Panel
-After=teamspeak6.service
-Wants=teamspeak6.service
+After=teamspeak3.service
+Wants=teamspeak3.service
 
 [Service]
 Type=simple
@@ -1043,7 +1024,7 @@ cmd_status() {
   load_env
   printf "%-28s %s\n" "SERVICE" "STATUS"
   printf "%-28s %s\n" "──────────────────────────" "────────"
-  for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+  for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
     local state
     state=$(systemctl is-active "$s" 2>/dev/null || echo "inactive")
     printf "  %-26s %s\n" "$s" "$state"
@@ -1055,7 +1036,7 @@ cmd_status() {
 }
 
 cmd_restart() {
-  for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+  for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
     systemctl restart "$s" 2>/dev/null || true
   done
   echo "All services restarted."
@@ -1180,7 +1161,7 @@ cmd_update() {
 }
 
 cmd_health() {
-  if systemctl is-active teamspeak6 >/dev/null 2>&1; then
+  if systemctl is-active teamspeak3 >/dev/null 2>&1; then
     echo "OK"; exit 0
   else
     echo "DOWN"; exit 1
@@ -1188,7 +1169,7 @@ cmd_health() {
 }
 
 cmd_logs() {
-  journalctl -u "${2:-teamspeak6}" --no-pager -n "${3:-50}"
+  journalctl -u "${2:-teamspeak3}" --no-pager -n "${3:-50}"
 }
 
 cmd_wipe() {
@@ -1203,12 +1184,12 @@ cmd_wipe() {
   fi
 
   echo "  Stopping services..."
-  for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+  for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
     systemctl stop "$s" 2>/dev/null || true
     systemctl disable "$s" 2>/dev/null || true
   done
 
-  rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
+  rm -f /etc/systemd/system/teamspeak3.service /etc/systemd/system/teamtp-*.service
   systemctl daemon-reload 2>/dev/null || true
   rm -f /etc/nginx/sites-available/teamtp /etc/nginx/sites-available/teamtp-ssl
   rm -f /etc/nginx/sites-enabled/teamtp /etc/nginx/sites-enabled/teamtp-ssl
@@ -1233,8 +1214,8 @@ cmd_help() {
   echo "  ssl                     Renew SSL certificates"
   echo "  backup                  Create backup (30-day retention)"
   echo "  update                  Pre-backup → git pull → npm ci → restart all"
-  echo "  health                  Exit 0 if TS6 is running"
-  echo "  logs [svc] [lines]      View service logs (default: teamspeak6, 50 lines)"
+  echo "  health                  Exit 0 if TS3 is running"
+  echo "  logs [svc] [lines]      View service logs (default: teamspeak3, 50 lines)"
   echo "  wipe                    DELETE everything (requires confirmation)"
   echo "  help                    Show this help"
 }
@@ -1501,11 +1482,11 @@ print_summary() {
     echo ""
   else
     echo -e "  ${YELLOW}${WRN} Privilege key not automatically captured.${NC}"
-    echo -e "  ${DIM}  Run: journalctl -u teamspeak6 | grep token${NC}"
+    echo -e "  ${DIM}  Run: journalctl -u teamspeak3 | grep token${NC}"
     echo ""
   fi
 
-  echo -e "  ${GREEN}${CHK}${NC} Enjoy your TeamSpeak 6 server!"
+  echo -e "  ${GREEN}${CHK}${NC} Enjoy your TeamSpeak 3 server!"
   echo ""
 }
 
@@ -1526,11 +1507,11 @@ do_wipe() {
     return
   fi
 
-  for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+  for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
     systemctl stop "$s" 2>/dev/null || true
     systemctl disable "$s" 2>/dev/null || true
   done
-  rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
+  rm -f /etc/systemd/system/teamspeak3.service /etc/systemd/system/teamtp-*.service
   systemctl daemon-reload 2>/dev/null || true
   rm -f /etc/nginx/sites-available/teamtp /etc/nginx/sites-available/teamtp-ssl
   rm -f /etc/nginx/sites-enabled/teamtp /etc/nginx/sites-enabled/teamtp-ssl
@@ -1587,7 +1568,7 @@ main() {
   _run_phase 5  deploy_files
   _run_phase 6  install_npm
   _run_phase 7  generate_secrets
-  _run_phase 8  install_ts6
+  _run_phase 8  install_ts3
   _run_phase 9  setup_systemd
   _run_phase 10 install_cli
   _run_phase 11 setup_nginx

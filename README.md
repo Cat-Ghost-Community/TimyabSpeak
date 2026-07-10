@@ -1,6 +1,6 @@
-# 🎮 TimyabSpeak — TeamSpeak 6 One-Command Server Manager
+# 🎮 TimyabSpeak — TeamSpeak 3 One-Command Server Manager
 
-**TimyabSpeak** (formerly TeamTP) is a complete, professional TeamSpeak 6 server deployment system with a one-command installer, three integrated bots (level-up, temp channels, support ticketing), a modern web panel, and a powerful CLI — all packaged as a single setup wizard.
+**TimyabSpeak** (formerly TeamTP) is a complete, professional TeamSpeak 3 server deployment system with a one-command installer, three integrated bots (level-up, temp channels, support ticketing), a modern web panel, and a powerful CLI — all packaged as a single setup wizard.
 
 ```
 curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/master/install.sh | sudo bash
@@ -85,7 +85,7 @@ curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/mas
 
 ### Step 4: Connect to Your TeamSpeak Server
 
-1. Download the **TeamSpeak 6 client** from [teamspeak.com](https://www.teamspeak.com)
+1. Download the **TeamSpeak 3 client** from [teamspeak.com](https://www.teamspeak.com)
 2. Open the client
 3. Click **Connections → Connect**
 4. In **Server Address**, type your server's IP address (or domain)
@@ -107,7 +107,7 @@ Log in with the admin username and password you set during installation.
 
 - **Can't connect via SSH?** — Check your VPS provider's documentation for "how to access your server"
 - **Installation fails?** — Scroll up and look for red `[FAIL]` messages
-- **Lost your privilege key?** — Run `journalctl -u teamspeak6 | grep token` on the server
+- **Lost your privilege key?** — Run `journalctl -u teamspeak3 | grep token` on the server
 - **Forgot admin password?** — Run `cat /opt/teamtp/.env | grep PANEL_ADMIN`
 
 ---
@@ -116,7 +116,7 @@ Log in with the admin username and password you set during installation.
 
 | Category | Details |
 |----------|---------|
-| **Server** | Auto-installs TS6 server, configures YAML, systemd service, port scanning with fallback |
+| **Server** | Auto-installs TS3 server, configures YAML, systemd service, port scanning with fallback |
 | **SSL** | Let's Encrypt (domain) or self-signed (IP) — auto-configured with nginx reverse proxy |
 | **Roles** | 9 server groups with full permission matrix — Owner, Admin, Mod, Support, Elite, Veteran, Member, Guest, Bot |
 | **Channels** | 23 channels in 6 themed categories — Welcome, Game Zone (with Time Window), Social, Support, Statistics, Staff |
@@ -149,10 +149,10 @@ Log in with the admin username and password you set during installation.
 curl -fsSL https://raw.githubusercontent.com/Cat-Ghost-Community/TimyabSpeak/master/install.sh | sudo bash
 ```
 
-### With Custom TS6 Download URL
+### With Custom TS3 Download URL
 
 ```bash
-TS6_URL=https://your-mirror/tsserver.tar.gz sudo bash install.sh
+TS6_URL=https://your-mirror/ts3server.tar.gz sudo bash install.sh
 ```
 
 ### Dry-Run Preview
@@ -259,10 +259,10 @@ The wizard goes through these phases:
 Phase  0: Pre-flight — root check, OS check (glibc ≥ 2.32), disk space, port scanning
 Phase  1: Wizard — domain/IP, SSL choice, server name, admin credentials, community name, slots
 Phase  2: Dependencies — apt packages, Node.js 20.x, build tools
-Phase  3: System users — tsserver + teamtp (no login, no home)
+Phase  3: System users — ts3server + teamtp (no login, no home)
 Phase  4: Deploy files — git clone or local copy → /opt/teamtp/
 Phase  5: Generate secrets — bcrypt password hash, API key, JWT secrets, query password
-Phase  6: TS6 server — download, extract, write tsserver.yaml, systemd service, health check
+Phase  6: TS3 server — download, extract, write ts3server.yaml, systemd service, health check
 Phase  7: Capture privilege key — auto-grep from logs
 Phase  8: Install bots — npm install, systemd services for level/temp/support bots
 Phase  9: Web panel — Express + Socket.IO + Helmet, systemd service
@@ -514,7 +514,7 @@ teamtp backup              # Create backup (30-day retention)
 teamtp update              # Pre-backup → git pull → npm ci → restart all
 teamtp health              # Health check (exit 0 = OK, exit 1 = DOWN)
 teamtp wipe                # DELETE everything — destructive, ask for confirmation
-teamtp logs [svc] [lines]  # View journald logs (default: teamspeak6, 50 lines)
+teamtp logs [svc] [lines]  # View journald logs (default: teamspeak3, 50 lines)
 teamtp help                # Show usage
 ```
 
@@ -524,13 +524,13 @@ teamtp help                # Show usage
 
 | Layer | Measure |
 |-------|---------|
-| Network | TS6 query interfaces bound to `127.0.0.1` only. UFW: allow only 9987/udp, 80/tcp, 443/tcp, SSH. |
+| Network | TS3 query interfaces bound to `127.0.0.1` only. UFW: allow only 9987/udp, 80/tcp, 443/tcp, SSH. |
 | Firewall | `ufw default deny incoming`, fail2ban for SSH and nginx auth. |
 | Credentials | `.env` chmod 600. Query password: 32-char random. API key: 64-char random. JWT: 15-min access + 7-day refresh tokens. |
 | Authentication | Panel login rate-limited (5 attempts/min/IP). bcrypt password hashing. JWT with refresh rotation. |
-| OS Users | `tsserver` runs TS6. `teamtp` runs bots + panel. Neither can log in. No service runs as root. |
+| OS Users | `ts3server` runs TS3. `teamtp` runs bots + panel. Neither can log in. No service runs as root. |
 | Permissions | Guest role: file upload/download/browse all denied (value=-1). Private channels denied. |
-| Audit | All ticket actions logged. All permission changes logged by TS6. Weekly permission audit recommended. |
+| Audit | All ticket actions logged. All permission changes logged by TS3. Weekly permission audit recommended. |
 | Updates | `unattended-upgrades` for security patches. `teamtp update` for platform updates. Pre-update backup always. |
 | SSL | TLS 1.2/1.3 only, strong ciphers, HSTS headers via nginx. |
 | Bot | Private message rate limit: 50/user/10min. Command cooldown: 2s. Channel ownership verified server-side. |
@@ -563,9 +563,9 @@ sudo /opt/teamtp/scripts/backup.sh
 ### Restore from Backup
 
 ```bash
-sudo systemctl stop teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot
+sudo systemctl stop teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot
 sudo tar -xzf /opt/teamtp/backups/teamtp-{date}.tar.gz -C /opt/teamtp/
-sudo systemctl start teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot
+sudo systemctl start teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot
 ```
 
 ---
@@ -622,7 +622,7 @@ Both methods:
 │   ├── faq.json                  # 10 initial FAQ entries
 │   └── welcome.txt               # Welcome message
 ├── shared/
-│   ├── ts6-rest.js               # TS6 REST API client (40+ methods)
+│   ├── TS3-rest.js               # TS3 REST API client (40+ methods)
 │   └── ticket-db.js              # Shared SQLite ticket store
 ├── bots/
 │   ├── level-bot/
@@ -647,7 +647,7 @@ Both methods:
 │   ├── backup.sh                 # Backup with 30-day retention
 │   └── update.sh                 # Pre-backup → npm ci → restart
 ├── systemd/
-│   ├── teamspeak6.service        # TS6 server
+│   ├── teamspeak3.service        # TS3 server
 │   ├── teamtp-panel.service      # Web panel
 │   ├── teamtp-level-bot.service  # Level-up bot
 │   ├── teamtp-temp-bot.service   # Temp channel bot
@@ -663,7 +663,7 @@ Both methods:
 
 ```
 ┌──────────────┐     ┌──────────────────────────────────────────┐
-│  TS6 Clients │────▶│  TeamSpeak 6 Server                      │
+│  TS3 Clients │────▶│  TeamSpeak 3 Server                      │
 │  (Players)   │     │  Ports: 9987/udp, 10022, 10080, 30033   │
 └──────────────┘     └────────┬─────────────────────────────────┘
                               │ REST API (127.0.0.1:10080)
@@ -699,18 +699,18 @@ Both methods:
 
 ## Troubleshooting
 
-### TS6 Server Won't Start
+### TS3 Server Won't Start
 
 ```bash
-journalctl -u teamspeak6 -n 50 --no-pager
+journalctl -u teamspeak3 -n 50 --no-pager
 ```
 
 Common causes:
 - **glibc too old**: Need glibc ≥ 2.32 (Ubuntu 22.04+ / Debian 12+)
-- **License expired**: TS6 beta license renews every 2 months. Update TS6 binary.
+- **License expired**: TS3 server license is perpetual for non-profit use. Commercial use requires NPL license from TeamSpeak.
 - **Port conflict**: Check `ss -tlnp | grep <port>`
 
-### Bot Won't Connect to TS6
+### Bot Won't Connect to TS3
 
 ```bash
 journalctl -u teamtp-level-bot -n 50 --no-pager
@@ -720,8 +720,8 @@ journalctl -u teamtp-support-bot -n 50 --no-pager
 
 Common causes:
 - **API key mismatch**: Check `/opt/teamtp/.env` `TS6_API_KEY` is correct
-- **TS6 not running**: Check `teamtp status`
-- **HTTP query disabled**: Verify `tsserver.yaml` has `query.http.enable: 1`
+- **TS3 not running**: Check `teamtp status`
+- **HTTP query disabled**: Verify `ts3server.yaml` has `query.http.enable: 1`
 
 ### Web Panel Shows 502 Bad Gateway
 
@@ -741,7 +741,7 @@ If you lose the privilege key or admin access:
 
 ```bash
 # Check logs for the key
-journalctl -u teamspeak6 | grep token
+journalctl -u teamspeak3 | grep token
 
 # Or regenerate via SSH query:
 # Connect to SSH query port with the admin password from .env
@@ -760,19 +760,19 @@ A: Yes. The wizard asks for a domain. If provided, Let's Encrypt SSL is auto-con
 A: The wizard works with IP addresses. Self-signed SSL or no SSL options are available.
 
 **Q: How do I change the server name after installation?**  
-A: Via the web panel (Settings page) or by editing `tsserver.yaml` and restarting.
+A: Via the web panel (Settings page) or by editing `ts3server.yaml` and restarting.
 
 **Q: Can I add more game categories?**  
-A: Yes. Edit `/opt/teamtp/config/channels.json` and apply via the TS6 REST API or manually through the TS6 client.
+A: Yes. Edit `/opt/teamtp/config/channels.json` and apply via the TS3 REST API or manually through the TS3 client.
 
 **Q: How do I add custom roles/permissions?**  
-A: Edit `/opt/teamtp/config/permissions.json` and apply via the panel or ServerQuery. The permission matrix supports all TS6 permission types.
+A: Edit `/opt/teamtp/config/permissions.json` and apply via the panel or ServerQuery. The permission matrix supports all TS3 permission types.
 
 **Q: Is there a Docker version?**  
 A: Not yet. The installer runs on bare metal Ubuntu/Debian. Docker support is planned.
 
 **Q: How often should I update?**  
-A: Run `teamtp update` every 2 months or when TS6 releases a new beta (the beta license expires every 2 months).
+A: Run `teamtp update` every 2 months or when TS3 releases a new beta (the beta license expires every 2 months).
 
 ---
 

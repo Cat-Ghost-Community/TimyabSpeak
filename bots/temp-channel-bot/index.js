@@ -1,11 +1,9 @@
-const { TS6Client } = require('../../shared/ts6-rest');
+const { TS3Client } = require('../../shared/ts3-query');
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
 const CONFIG = {
-  apiKey: process.env.TS6_API_KEY || '',
-  baseUrl: process.env.TS6_BASE_URL || 'http://127.0.0.1:10080',
   triggerChannelNames: ['🎫 ➕ Create Channel', '🎫?➕ Create Channel'],
   timeWindowCategoryName: '⏳ Time Window',
   maxChannelsPerUser: 1,
@@ -21,7 +19,11 @@ const CONFIG = {
 
 class TempChannelBot {
   constructor() {
-    this.ts6 = new TS6Client({ baseUrl: CONFIG.baseUrl, apiKey: CONFIG.apiKey });
+    this.ts3 = new TS3Client({
+      host: process.env.TS3_QUERY_HOST || '127.0.0.1',
+      port: parseInt(process.env.TS3_QUERY_PORT || '10011'),
+      password: process.env.TS3_QUERY_PASSWORD || ''
+    });
     this.db = new Database(CONFIG.dbPath);
     this.db.pragma('journal_mode = WAL');
     this._initDb();
@@ -85,7 +87,7 @@ class TempChannelBot {
   async _recoverState() {
     try {
       const active = this.db.prepare('SELECT * FROM temp_channels WHERE deleted = 0').all();
-      const channels = await this.ts6.getChannels();
+      const channels = await this.ts3.getChannels();
       const channelMap = new Map(channels.map(c => [c.cid, c]));
       const now = Math.floor(Date.now() / 1000);
 
@@ -110,8 +112,8 @@ class TempChannelBot {
 
   async _poll() {
     try {
-      const clients = await this.ts6.getClients();
-      const channels = await this.ts6.getChannels();
+      const clients = await this.ts3.getClients();
+      const channels = await this.ts3.getChannels();
       const now = Math.floor(Date.now() / 1000);
       const oneHourAgo = now - 3600;
 
@@ -181,7 +183,7 @@ class TempChannelBot {
 
     if (!tempRecord) {
       if (text === '/help') {
-        await this.ts6.sendPrivateMessage(client.clid,
+        await this.ts3.sendPrivateMessage(client.clid,
           '╔══════════════════════════════╗\n' +
           '║  General Commands            ║\n' +
           '║  /new [subject] — Open ticket║\n' +
@@ -210,8 +212,8 @@ class TempChannelBot {
       if (!isCreator && !canClaim) return await this._notOwner(client);
       const name = text.slice(6).trim().substring(0, 40);
       if (!name) return await this._error(client, 'Usage: /name <channel name>');
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_name: name });
-      await this.ts6.sendPrivateMessage(client.clid, `Channel renamed to: ${name}`);
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_name: name });
+      await this.ts3.sendPrivateMessage(client.clid, `Channel renamed to: ${name}`);
       this.db.prepare('UPDATE temp_channels SET channel_name = ? WHERE id = ?').run(name, tempRecord.id);
       return;
     }
@@ -220,8 +222,8 @@ class TempChannelBot {
       if (!isCreator) return await this._notOwner(client);
       const limit = parseInt(text.slice(7).trim());
       if (isNaN(limit) || limit < 0 || limit > 100) return await this._error(client, 'Limit must be 0-100 (0 = unlimited)');
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_maxclients: limit });
-      await this.ts6.sendPrivateMessage(client.clid, `User limit set to: ${limit || 'unlimited'}`);
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_maxclients: limit });
+      await this.ts3.sendPrivateMessage(client.clid, `User limit set to: ${limit || 'unlimited'}`);
       this.db.prepare('UPDATE temp_channels SET user_limit = ? WHERE id = ?').run(limit, tempRecord.id);
       return;
     }
@@ -230,12 +232,12 @@ class TempChannelBot {
       if (!isCreator) return await this._notOwner(client);
       const pw = text.slice(10).trim();
       if (pw) {
-        await this.ts6.editChannel(tempRecord.channel_id, { channel_password: pw });
-        await this.ts6.sendPrivateMessage(client.clid, `Password set. Share with friends to let them join.`);
+        await this.ts3.editChannel(tempRecord.channel_id, { channel_password: pw });
+        await this.ts3.sendPrivateMessage(client.clid, `Password set. Share with friends to let them join.`);
         this.db.prepare('UPDATE temp_channels SET mode = ?, password_hash = ? WHERE id = ?').run('password', pw, tempRecord.id);
       } else {
-        await this.ts6.editChannel(tempRecord.channel_id, { channel_password: '' });
-        await this.ts6.sendPrivateMessage(client.clid, 'Password removed.');
+        await this.ts3.editChannel(tempRecord.channel_id, { channel_password: '' });
+        await this.ts3.sendPrivateMessage(client.clid, 'Password removed.');
         this.db.prepare('UPDATE temp_channels SET mode = ?, password_hash = ? WHERE id = ?').run('public', '', tempRecord.id);
       }
       return;
@@ -243,65 +245,65 @@ class TempChannelBot {
 
     if (text === '/public') {
       if (!isCreator) return await this._notOwner(client);
-      await this.ts6.setChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power', 0);
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_password: '' });
+      await this.ts3.setChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power', 0);
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_password: '' });
       this.db.prepare('UPDATE temp_channels SET mode = ?, password_hash = ? WHERE id = ?').run('public', '', tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, 'Channel set to public. Anyone can join.');
+      await this.ts3.sendPrivateMessage(client.clid, 'Channel set to public. Anyone can join.');
       return;
     }
 
     if (text === '/private') {
       if (!isCreator) return await this._notOwner(client);
-      await this.ts6.setChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power', 100);
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_password: '' });
+      await this.ts3.setChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power', 100);
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_password: '' });
       this.db.prepare('UPDATE temp_channels SET mode = ?, password_hash = ? WHERE id = ?').run('private', '', tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, 'Channel set to private. Use /invite @user to let people in.');
+      await this.ts3.sendPrivateMessage(client.clid, 'Channel set to private. Use /invite @user to let people in.');
       return;
     }
 
     if (text.startsWith('/invite ')) {
       if (!isCreator) return await this._notOwner(client);
       const targetName = text.slice(8).trim();
-      const clients = await this.ts6.getClients();
+      const clients = await this.ts3.getClients();
       const target = clients.find(c => c.client_nickname.toLowerCase() === targetName.toLowerCase());
       if (!target) return await this._error(client, 'User not found or not online.');
-      await this.ts6.setClientChannelPerm(target.cldbid, tempRecord.channel_id, 'i_channel_needed_join_power', 100);
+      await this.ts3.setClientChannelPerm(target.cldbid, tempRecord.channel_id, 'i_channel_needed_join_power', 100);
       const invited = JSON.parse(tempRecord.invited_users || '[]');
       invited.push(target.client_unique_identifier);
       this.db.prepare('UPDATE temp_channels SET invited_users = ? WHERE id = ?').run(JSON.stringify(invited), tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, `Invited ${target.client_nickname} to your channel.`);
-      await this.ts6.sendPrivateMessage(target.clid, `${client.client_nickname} invited you to their channel! Join now.`);
+      await this.ts3.sendPrivateMessage(client.clid, `Invited ${target.client_nickname} to your channel.`);
+      await this.ts3.sendPrivateMessage(target.clid, `${client.client_nickname} invited you to their channel! Join now.`);
       return;
     }
 
     if (text === '/lock') {
       if (!isCreator) return await this._notOwner(client);
       const pw = Math.random().toString(36).slice(2, 10);
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_password: pw });
-      await this.ts6.setChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power', 100);
-      await this.ts6.setClientChannelPerm(tempRecord.creator_id, tempRecord.channel_id, 'i_channel_needed_join_power', 0);
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_password: pw });
+      await this.ts3.setChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power', 100);
+      await this.ts3.setClientChannelPerm(tempRecord.creator_id, tempRecord.channel_id, 'i_channel_needed_join_power', 0);
       this.db.prepare('UPDATE temp_channels SET mode = ?, password_hash = ? WHERE id = ?').run('locked', pw, tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, `🔒 Channel locked. Password: ${pw}\nKeep this private. /unlock to unlock.`);
+      await this.ts3.sendPrivateMessage(client.clid, `🔒 Channel locked. Password: ${pw}\nKeep this private. /unlock to unlock.`);
       return;
     }
 
     if (text === '/unlock') {
       if (!isCreator) return await this._notOwner(client);
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_password: '' });
-      await this.ts6.deleteChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power');
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_password: '' });
+      await this.ts3.deleteChannelPerm(tempRecord.channel_id, 'i_channel_needed_join_power');
       this.db.prepare('UPDATE temp_channels SET mode = ?, password_hash = ? WHERE id = ?').run('public', '', tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, '🔓 Channel unlocked.');
+      await this.ts3.sendPrivateMessage(client.clid, '🔓 Channel unlocked.');
       return;
     }
 
     if (text.startsWith('/kick ')) {
       if (!isCreator) return await this._notOwner(client);
       const targetName = text.slice(6).trim();
-      const clients = await this.ts6.getClients();
+      const clients = await this.ts3.getClients();
       const target = clients.find(c => c.cid == tempRecord.channel_id && c.client_nickname.toLowerCase() === targetName.toLowerCase());
       if (!target) return await this._error(client, 'User not found in your channel.');
-      await this.ts6.kickClientFromChannel(target.clid, 'Kicked by channel owner');
-      await this.ts6.sendPrivateMessage(client.clid, `Kicked ${target.client_nickname} from your channel.`);
+      await this.ts3.kickClientFromChannel(target.clid, 'Kicked by channel owner');
+      await this.ts3.sendPrivateMessage(client.clid, `Kicked ${target.client_nickname} from your channel.`);
       return;
     }
 
@@ -310,36 +312,36 @@ class TempChannelBot {
       const br = parseInt(text.slice(9).trim());
       if (isNaN(br) || br < 8 || br > 512) return await this._error(client, 'Bitrate must be 8-512 kbps');
       const quality = Math.round((br / 512) * 10);
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_codec_quality: Math.max(1, quality) });
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_codec_quality: Math.max(1, quality) });
       this.db.prepare('UPDATE temp_channels SET bitrate = ? WHERE id = ?').run(br, tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, `Bitrate set to ${br} kbps.`);
+      await this.ts3.sendPrivateMessage(client.clid, `Bitrate set to ${br} kbps.`);
       return;
     }
 
     if (text.startsWith('/desc ')) {
       if (!isCreator) return await this._notOwner(client);
       const desc = text.slice(6).trim().substring(0, 200);
-      await this.ts6.editChannel(tempRecord.channel_id, { channel_topic: desc });
+      await this.ts3.editChannel(tempRecord.channel_id, { channel_topic: desc });
       this.db.prepare('UPDATE temp_channels SET description = ? WHERE id = ?').run(desc, tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, 'Description updated.');
+      await this.ts3.sendPrivateMessage(client.clid, 'Description updated.');
       return;
     }
 
     if (text.startsWith('/give ')) {
       if (!isCreator) return await this._notOwner(client);
       const targetName = text.slice(6).trim();
-      const clients = await this.ts6.getClients();
+      const clients = await this.ts3.getClients();
       const target = clients.find(c => c.clid != client.clid && c.client_nickname.toLowerCase() === targetName.toLowerCase());
       if (!target) return await this._error(client, 'User not found online.');
       this.db.prepare('UPDATE temp_channels SET creator_id = ?, creator_uid = ?, creator_name = ? WHERE id = ?')
         .run(target.cldbid, target.client_unique_identifier, target.client_nickname, tempRecord.id);
       const cg = await this._getChannelAdminGroup();
       if (cg) {
-        await this.ts6.setClientChannelGroup(client.cldbid, tempRecord.channel_id, 0);
-        await this.ts6.setClientChannelGroup(target.cldbid, tempRecord.channel_id, cg.cgid);
+        await this.ts3.setClientChannelGroup(client.cldbid, tempRecord.channel_id, 0);
+        await this.ts3.setClientChannelGroup(target.cldbid, tempRecord.channel_id, cg.cgid);
       }
-      await this.ts6.sendPrivateMessage(client.clid, `Transferred ownership to ${target.client_nickname}.`);
-      await this.ts6.sendPrivateMessage(target.clid, `${client.client_nickname} made you the owner of ${tempRecord.channel_name}!`);
+      await this.ts3.sendPrivateMessage(client.clid, `Transferred ownership to ${target.client_nickname}.`);
+      await this.ts3.sendPrivateMessage(target.clid, `${client.client_nickname} made you the owner of ${tempRecord.channel_name}!`);
       return;
     }
 
@@ -351,31 +353,31 @@ class TempChannelBot {
         .run(client.cldbid, client.client_unique_identifier, client.client_nickname, tempRecord.id);
       const cg = await this._getChannelAdminGroup();
       if (cg) {
-        await this.ts6.setClientChannelGroup(client.cldbid, tempRecord.channel_id, cg.cgid);
+        await this.ts3.setClientChannelGroup(client.cldbid, tempRecord.channel_id, cg.cgid);
       }
       this._cancelEmptyTimer(tempRecord.channel_id);
-      await this.ts6.sendPrivateMessage(client.clid, `You are now the owner of ${tempRecord.channel_name}!`);
+      await this.ts3.sendPrivateMessage(client.clid, `You are now the owner of ${tempRecord.channel_name}!`);
       return;
     }
 
     if (text === '/hide') {
       if (!isCreator) return await this._notOwner(client);
-      const channels = await this.ts6.getChannels();
+      const channels = await this.ts3.getChannels();
       const timeWindow = this._findTimeWindowCategory(channels);
       if (timeWindow) {
-        await this.ts6.editChannel(tempRecord.channel_id, { cpid: timeWindow.cid });
-        await this.ts6.sendPrivateMessage(client.clid, 'Channel hidden in Time Window.');
+        await this.ts3.editChannel(tempRecord.channel_id, { cpid: timeWindow.cid });
+        await this.ts3.sendPrivateMessage(client.clid, 'Channel hidden in Time Window.');
       }
       return;
     }
 
     if (text === '/show') {
       if (!isCreator) return await this._notOwner(client);
-      const channels = await this.ts6.getChannels();
+      const channels = await this.ts3.getChannels();
       const triggerCh = channels.find(c => CONFIG.triggerChannelNames.includes(c.channel_name));
       if (triggerCh) {
-        await this.ts6.editChannel(tempRecord.channel_id, { cpid: triggerCh.cpid });
-        await this.ts6.sendPrivateMessage(client.clid, 'Channel restored to original category.');
+        await this.ts3.editChannel(tempRecord.channel_id, { cpid: triggerCh.cpid });
+        await this.ts3.sendPrivateMessage(client.clid, 'Channel restored to original category.');
       }
       return;
     }
@@ -385,7 +387,7 @@ class TempChannelBot {
       const mins = parseInt(text.slice(9).trim());
       if (isNaN(mins) || mins < 0) return await this._error(client, 'Timeout must be 0+ minutes (0 = delete immediately when empty)');
       this.db.prepare('UPDATE temp_channels SET idle_timeout_sec = ? WHERE id = ?').run(mins * 60, tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, `Auto-delete set to ${mins} min idle.`);
+      await this.ts3.sendPrivateMessage(client.clid, `Auto-delete set to ${mins} min idle.`);
       return;
     }
 
@@ -394,7 +396,7 @@ class TempChannelBot {
       const current = this.db.prepare('SELECT is_permanent FROM temp_channels WHERE id = ?').get(tempRecord.id);
       const newVal = current && current.is_permanent ? 0 : 1;
       this.db.prepare('UPDATE temp_channels SET is_permanent = ? WHERE id = ?').run(newVal, tempRecord.id);
-      await this.ts6.sendPrivateMessage(client.clid, newVal ? 'Channel is now permanent (never auto-deletes).' : 'Channel is no longer permanent.');
+      await this.ts3.sendPrivateMessage(client.clid, newVal ? 'Channel is now permanent (never auto-deletes).' : 'Channel is no longer permanent.');
       if (!newVal) this._startEmptyTimer(tempRecord);
       return;
     }
@@ -407,7 +409,7 @@ class TempChannelBot {
 
     if (text === '/settings') {
       const modeIcons = { public: '🌐', private: '🔒', password: '🔑', locked: '🔐' };
-      await this.ts6.sendPrivateMessage(client.clid,
+      await this.ts3.sendPrivateMessage(client.clid,
         `╔══════════════════════════════╗\n` +
         `║  ${tempRecord.channel_name}       \n` +
         `║  Mode: ${modeIcons[tempRecord.mode] || '🌐'} ${tempRecord.mode}        \n` +
@@ -423,7 +425,7 @@ class TempChannelBot {
   }
 
   async handleClientJoinChannel(client, channelId) {
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const channel = channels.find(c => c.cid == channelId);
     if (!channel) return;
 
@@ -434,19 +436,19 @@ class TempChannelBot {
 
     const userChannelCount = this.db.prepare('SELECT COUNT(*) as cnt FROM temp_channels WHERE creator_uid = ? AND deleted = 0').get(client.client_unique_identifier);
     if (userChannelCount.cnt >= CONFIG.maxChannelsPerUser) {
-      await this.ts6.sendPrivateMessage(client.clid, `You already have ${userChannelCount.cnt} channel(s). Max is ${CONFIG.maxChannelsPerUser}.`);
+      await this.ts3.sendPrivateMessage(client.clid, `You already have ${userChannelCount.cnt} channel(s). Max is ${CONFIG.maxChannelsPerUser}.`);
       return;
     }
 
     const recentCreations = this.db.prepare('SELECT COUNT(*) as cnt FROM creation_log WHERE user_id = ? AND created_at > ?').get(client.cldbid, now - 3600);
     if (recentCreations.cnt >= CONFIG.maxCreationsPerHour) {
-      await this.ts6.sendPrivateMessage(client.clid, `Too many channel creations (${recentCreations.cnt}/${CONFIG.maxCreationsPerHour} per hour).`);
+      await this.ts3.sendPrivateMessage(client.clid, `Too many channel creations (${recentCreations.cnt}/${CONFIG.maxCreationsPerHour} per hour).`);
       return;
     }
 
     const totalActive = this.db.prepare('SELECT COUNT(*) as cnt FROM temp_channels WHERE deleted = 0').get();
     if (totalActive.cnt >= 30) {
-      await this.ts6.sendPrivateMessage(client.clid, 'Server at max temp channel capacity (30). Try again later.');
+      await this.ts3.sendPrivateMessage(client.clid, 'Server at max temp channel capacity (30). Try again later.');
       return;
     }
 
@@ -455,7 +457,7 @@ class TempChannelBot {
 
     const chName = `${client.client_nickname}'s Room`.substring(0, 40);
     try {
-      const newChannel = await this.ts6.createChannel(chName, parentId, {
+      const newChannel = await this.ts3.createChannel(chName, parentId, {
         codec: 4,
         codecQuality: 10,
         maxClients: 0,
@@ -464,7 +466,7 @@ class TempChannelBot {
 
       const cg = await this._getChannelAdminGroup();
       if (cg && newChannel.cid) {
-        await this.ts6.setClientChannelGroup(client.cldbid, newChannel.cid, cg.cgid);
+        await this.ts3.setClientChannelGroup(client.cldbid, newChannel.cid, cg.cgid);
       }
 
       const recordId = this.db.prepare(`
@@ -474,9 +476,9 @@ class TempChannelBot {
 
       this.db.prepare('INSERT INTO creation_log (user_id, created_at) VALUES (?, ?)').run(client.cldbid, now);
 
-      await this.ts6.moveClient(client.clid, newChannel.cid);
+      await this.ts3.moveClient(client.clid, newChannel.cid);
 
-      await this.ts6.sendPrivateMessage(client.clid,
+      await this.ts3.sendPrivateMessage(client.clid,
         `╔══════════════════════════════════════╗\n` +
         `║  🎧 Welcome to your channel!         ║\n` +
         `║                                      ║\n` +
@@ -497,14 +499,14 @@ class TempChannelBot {
       console.log(`[TempBot] Created channel "${chName}" for ${client.client_nickname}`);
     } catch (err) {
       console.error('[TempBot] Create channel error:', err.message);
-      await this.ts6.sendPrivateMessage(client.clid, 'Failed to create channel. Please try again.');
+      await this.ts3.sendPrivateMessage(client.clid, 'Failed to create channel. Please try again.');
     }
   }
 
   async _getChannelAdminGroup() {
     if (this._channelGroupCache) return this._channelGroupCache;
     try {
-      const groups = await this.ts6.getChannelGroups();
+      const groups = await this.ts3.getChannelGroups();
       const admin = groups.find(g => g.cgid == 6 || g.name === CONFIG.channelAdminGroupName);
       if (admin) this._channelGroupCache = admin;
       return admin;
@@ -521,10 +523,10 @@ class TempChannelBot {
 
     const timer = setTimeout(async () => {
       try {
-        const channels = await this.ts6.getChannels();
+        const channels = await this.ts3.getChannels();
         const ch = channels.find(c => c.cid == record.channel_id);
         if (!ch) { this._handleChannelDeleted(record); return; }
-        const clients = await this.ts6.getChannelClients(record.channel_id);
+        const clients = await this.ts3.getChannelClients(record.channel_id);
         if (clients.length === 0) {
           if (record.is_permanent) {
             const now = Math.floor(Date.now() / 1000);
@@ -552,7 +554,7 @@ class TempChannelBot {
 
   async _deleteChannel(record) {
     try {
-      await this.ts6.deleteChannel(record.channel_id);
+      await this.ts3.deleteChannel(record.channel_id);
     } catch (err) {
       console.error(`[TempBot] Delete channel ${record.channel_id} error:`, err.message);
     }
@@ -568,7 +570,7 @@ class TempChannelBot {
 
   async _isUserOnline(uid) {
     try {
-      const clients = await this.ts6.getClients();
+      const clients = await this.ts3.getClients();
       return clients.some(c => c.client_unique_identifier === uid);
     } catch { return false; }
   }
@@ -579,11 +581,11 @@ class TempChannelBot {
   }
 
   async _notOwner(client) {
-    await this.ts6.sendPrivateMessage(client.clid, `You don't own this channel. /claim to claim it if the owner left.`);
+    await this.ts3.sendPrivateMessage(client.clid, `You don't own this channel. /claim to claim it if the owner left.`);
   }
 
   async _error(client, msg) {
-    await this.ts6.sendPrivateMessage(client.clid, `❌ ${msg}`);
+    await this.ts3.sendPrivateMessage(client.clid, `❌ ${msg}`);
   }
 
   async _showHelp(client, record) {
@@ -591,7 +593,7 @@ class TempChannelBot {
     const canClaim = this._canClaim(record);
     const ownerStatus = isCreator ? ' (you)' : (canClaim ? ' (claimable)' : '');
 
-    await this.ts6.sendPrivateMessage(client.clid,
+    await this.ts3.sendPrivateMessage(client.clid,
       `╔══════════════════════════════════════╗\n` +
       `║  Temp Channel Commands               ║\n` +
       `║  Owner: ${record.creator_name}${ownerStatus}  \n` +

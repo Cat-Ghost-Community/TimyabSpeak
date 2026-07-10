@@ -6,7 +6,7 @@ const bcrypt = require('bcrypt');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
-const { TS6Client } = require('../shared/ts6-rest');
+const { TS3Client } = require('../shared/ts3-query');
 const { TicketDB } = require('../shared/ticket-db');
 
 const JWT_SECRET = process.env.PANEL_JWT_SECRET;
@@ -19,9 +19,10 @@ if (!JWT_SECRET || JWT_SECRET === 'change-me-in-env') {
   process.exit(1);
 }
 
-const ts6 = new TS6Client({
-  baseUrl: process.env.TS6_BASE_URL || 'http://127.0.0.1:10080',
-  apiKey: process.env.TS6_API_KEY || ''
+const ts3 = new TS3Client({
+  host: process.env.TS3_QUERY_HOST || '127.0.0.1',
+  port: parseInt(process.env.TS3_QUERY_PORT || '10011'),
+  password: process.env.TS3_QUERY_PASSWORD || ''
 });
 
 const ticketDb = new TicketDB(path.join(__dirname, '..', 'bots', 'support-bot', 'tickets.sqlite'));
@@ -113,13 +114,13 @@ app.post('/api/auth/refresh', (req, res) => {
 
 app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
   try {
-    const health = await ts6.health();
+    const health = await ts3.health();
     let serverInfo = null;
     let clientCount = 0;
     if (health) {
       try {
-        serverInfo = await ts6.getServerInfo();
-        const clients = await ts6.getClients();
+        serverInfo = await ts3.getServerInfo();
+        const clients = await ts3.getClients();
         clientCount = clients ? clients.filter(c => parseInt(c.client_type) === 0).length : 0;
       } catch {}
     }
@@ -220,7 +221,7 @@ app.get('/api/tickets/:id/transcript', authenticateToken, (req, res) => {
 
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
-    const clients = await ts6.getClients();
+    const clients = await ts3.getClients();
     const search = req.query.search ? req.query.search.toLowerCase() : '';
     const filtered = (clients || []).filter(c =>
       parseInt(c.client_type) === 0 && c.client_nickname && c.client_nickname.toLowerCase().includes(search)
@@ -266,13 +267,13 @@ app.put('/api/users/xp', authenticateToken, adminOnly, async (req, res) => {
 });
 
 app.get('/api/channels', authenticateToken, async (req, res) => {
-  try { res.json((await ts6.getChannels()) || []); }
+  try { res.json((await ts3.getChannels()) || []); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/roles', authenticateToken, async (req, res) => {
   try {
-    const groups = await ts6.getServerGroups();
+    const groups = await ts3.getServerGroups();
     let roleConfig = [];
     try {
       roleConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'roles.json'), 'utf8'));
@@ -359,7 +360,7 @@ app.get('/api/logs', authenticateToken, adminOnly, (req, res) => {
 });
 
 app.get('/api/settings', authenticateToken, async (req, res) => {
-  try { res.json((await ts6.getServerInfo()) || {}); }
+  try { res.json((await ts3.getServerInfo()) || {}); }
   catch { res.json({}); }
 });
 

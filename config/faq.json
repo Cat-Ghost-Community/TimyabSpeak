@@ -3,14 +3,14 @@
     "id": 1,
     "keywords": "connection,connect,cant,join,cannot,error,timeout",
     "question": "Can't connect to the server",
-    "answer": "1. Check server status: teamtp status  (or /status in discord if integrated)\n2. Ensure UDP port 9987 is open in your firewall\n3. Try restarting your TeamSpeak 6 client\n4. If problem persists, open a support ticket with /new",
+    "answer": "1. Check server status: teamtp status  (or /status in discord if integrated)\n2. Ensure UDP port 9987 is open in your firewall\n3. Try restarting your TeamSpeak 3 client\n4. If problem persists, open a support ticket with /new",
     "category": "technical"
   },
   {
     "id": 2,
     "keywords": "password,forgot,reset,login,account",
     "question": "Forgot my password / can't log in",
-    "answer": "Use the 'Forgot Password' option in the TS6 client login screen. If that doesn't help, open a ticket with /new and a staff member will assist you with a password reset.",
+    "answer": "Use the 'Forgot Password' option in the TS3 client login screen. If that doesn't help, open a ticket with /new and a staff member will assist you with a password reset.",
     "category": "account"
   },
   {

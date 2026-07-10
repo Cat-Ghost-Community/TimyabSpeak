@@ -46,7 +46,7 @@ cmd_status() {
   echo -e "  ${BOLD}Service Status${NC}"
   echo ""
 
-  for s in teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
+  for s in teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot; do
     local state status_color
     state=$(systemctl is-active "$s" 2>/dev/null || echo "inactive")
     case "$state" in
@@ -68,7 +68,7 @@ cmd_status() {
 # ══════════════════════════════════════════════════════════════════
 
 cmd_restart() {
-  local svcs=(teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot)
+  local svcs=(teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot)
   for s in "${svcs[@]}"; do
     printf "  Restarting %s..." "$s"
     if systemctl restart "$s" 2>/dev/null; then
@@ -301,7 +301,7 @@ cmd_update() {
 # ══════════════════════════════════════════════════════════════════
 
 cmd_health() {
-  if systemctl is-active teamspeak6 >/dev/null 2>&1; then
+  if systemctl is-active teamspeak3 >/dev/null 2>&1; then
     echo "OK"; exit 0
   else
     echo "DOWN"; exit 1
@@ -313,10 +313,10 @@ cmd_health() {
 # ══════════════════════════════════════════════════════════════════
 
 cmd_logs() {
-  local svc="${1:-teamspeak6}"
+  local svc="${1:-teamspeak3}"
   local lines="${2:-50}"
 
-  local valid_svcs=(teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot)
+  local valid_svcs=(teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot)
   local found=false
   for v in "${valid_svcs[@]}"; do
     [[ "$svc" == "$v" ]] && found=true && break
@@ -349,14 +349,14 @@ cmd_wipe() {
 
   echo ""
   info "Stopping services..."
-  local svcs=(teamspeak6 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot)
+  local svcs=(teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot)
   for s in "${svcs[@]}"; do
     systemctl stop "$s" 2>/dev/null || true
     systemctl disable "$s" 2>/dev/null || true
   done
 
   info "Removing unit files..."
-  rm -f /etc/systemd/system/teamspeak6.service /etc/systemd/system/teamtp-*.service
+  rm -f /etc/systemd/system/teamspeak3.service /etc/systemd/system/teamtp-*.service
   systemctl daemon-reload 2>/dev/null || true
 
   info "Removing nginx config..."
@@ -396,7 +396,7 @@ cmd_help() {
   printf "  %-32s %s\n" "backup"       "Create backup (30-day retention)"
   printf "  %-32s %s\n" "update"       "Pre-backup → git pull → npm ci → restart"
   printf "  %-32s %s\n" "health"       "Health check (exit 0 = OK, 1 = DOWN)"
-  printf "  %-32s %s\n" "logs [s] [n]" "View logs (default: teamspeak6, 50 lines)"
+  printf "  %-32s %s\n" "logs [s] [n]" "View logs (default: teamspeak3, 50 lines)"
   printf "  %-32s %s\n" "wipe"         "DELETE everything permanently"
   printf "  %-32s %s\n" "help"         "Show this help"
   echo ""
@@ -437,7 +437,7 @@ main() {
       cmd_health
       ;;
     logs)
-      cmd_logs "${2:-teamspeak6}" "${3:-50}"
+      cmd_logs "${2:-teamspeak3}" "${3:-50}"
       ;;
     wipe)
       cmd_wipe

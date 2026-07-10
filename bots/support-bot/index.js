@@ -1,11 +1,9 @@
-const { TS6Client } = require('../../shared/ts6-rest');
+const { TS3Client } = require('../../shared/ts3-query');
 const { TicketDB } = require('../../shared/ticket-db');
 const path = require('path');
 const fs = require('fs');
 
 const CONFIG = {
-  apiKey: process.env.TS6_API_KEY || '',
-  baseUrl: process.env.TS6_BASE_URL || 'http://127.0.0.1:10080',
   ticketCategoryName: '📋 Active Tickets',
   archivedCategoryName: '🔒 Archived Tickets',
   createTicketChannelName: '🎫 Create Ticket',
@@ -23,7 +21,11 @@ const CONFIG = {
 
 class SupportBot {
   constructor() {
-    this.ts6 = new TS6Client({ baseUrl: CONFIG.baseUrl, apiKey: CONFIG.apiKey });
+    this.ts3 = new TS3Client({
+      host: process.env.TS3_QUERY_HOST || '127.0.0.1',
+      port: parseInt(process.env.TS3_QUERY_PORT || '10011'),
+      password: process.env.TS3_QUERY_PASSWORD || ''
+    });
     this.db = new TicketDB(CONFIG.dbPath);
     this._pollTimer = null;
     this._commandCooldowns = new Map();
@@ -90,7 +92,7 @@ class SupportBot {
       return;
     }
 
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const currentChannel = channels.find(c => c.cid == channelId);
     if (!currentChannel) return;
 
@@ -195,7 +197,7 @@ class SupportBot {
 
     const subject = text.length > 5 ? text.slice(4).trim().substring(0, 200) : 'No subject';
 
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const ticketCategory = channels.find(c => c.channel_name === CONFIG.ticketCategoryName && c.pid == 0);
     if (!ticketCategory) {
       return this._pm(client.clid, 'Ticket system not configured. Contact an admin.');
@@ -206,7 +208,7 @@ class SupportBot {
 
     const chName = `🎫 ${client.client_nickname}`.substring(0, 40);
     try {
-      const newChannel = await this.ts6.createChannel(chName, ticketCategory.cid, {
+      const newChannel = await this.ts3.createChannel(chName, ticketCategory.cid, {
         codec: 4,
         codecQuality: 10,
         maxClients: 0,
@@ -214,9 +216,9 @@ class SupportBot {
         password: ''
       });
 
-      await this.ts6.setChannelPerm(newChannel.cid, 'i_channel_needed_join_power', 50);
+      await this.ts3.setChannelPerm(newChannel.cid, 'i_channel_needed_join_power', 50);
 
-      const members = await this.ts6.getClients();
+      const members = await this.ts3.getClients();
       const staffMembers = [];
       for (const m of members) {
         if (await this._isStaff(m)) {
@@ -226,11 +228,11 @@ class SupportBot {
 
       for (const staff of staffMembers) {
         try {
-          await this.ts6.setClientChannelPerm(staff.cldbid, newChannel.cid, 'i_channel_needed_join_power', 50);
+          await this.ts3.setClientChannelPerm(staff.cldbid, newChannel.cid, 'i_channel_needed_join_power', 50);
         } catch {}
       }
 
-      await this.ts6.setClientChannelPerm(client.cldbid, newChannel.cid, 'i_channel_needed_join_power', 50);
+      await this.ts3.setClientChannelPerm(client.cldbid, newChannel.cid, 'i_channel_needed_join_power', 50);
 
       const ticketId = this.db.createTicket(newChannel.cid, client.cldbid, client.client_unique_identifier, client.client_nickname, subject);
 
@@ -248,11 +250,11 @@ class SupportBot {
         `│    /close   — Close this ticket            │\n` +
         `└─────────────────────────────────────────────┘`;
 
-      await this.ts6.sendChannelMessage(newChannel.cid, greeting);
+      await this.ts3.sendChannelMessage(newChannel.cid, greeting);
 
       const staffChat = channels.find(c => c.channel_name === CONFIG.staffChatChannelName);
       if (staffChat) {
-        await this.ts6.sendChannelMessage(staffChat.cid,
+        await this.ts3.sendChannelMessage(staffChat.cid,
           `@here New ticket #${ticketId} from ${client.client_nickname}: ${subject.substring(0, 100)}`
         );
       }
@@ -269,12 +271,12 @@ class SupportBot {
       return this._pm(client.clid, `Ticket #${ticket.id} is already claimed by ${ticket.claimed_by_name || 'someone'}.`);
     }
     this.db.claimTicket(ticket.id, client.cldbid, client.client_nickname);
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const ch = channels.find(c => c.cid == ticket.channel_id);
     if (ch) {
-      await this.ts6.editChannel(ticket.channel_id, { channel_topic: `Claimed by ${client.client_nickname} · ${ticket.subject.substring(0, 80)}` });
+      await this.ts3.editChannel(ticket.channel_id, { channel_topic: `Claimed by ${client.client_nickname} · ${ticket.subject.substring(0, 80)}` });
     }
-    await this.ts6.sendChannelMessage(ticket.channel_id, `🛠️ ${client.client_nickname} is handling this ticket.`);
+    await this.ts3.sendChannelMessage(ticket.channel_id, `🛠️ ${client.client_nickname} is handling this ticket.`);
     console.log(`[SupportBot] Ticket #${ticket.id} claimed by ${client.client_nickname}`);
   }
 
@@ -286,29 +288,29 @@ class SupportBot {
     this.db.closeTicket(ticket.id, client.cldbid, reason);
     await this._writeTranscript(ticket);
 
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const archivedCategory = channels.find(c => c.channel_name === CONFIG.archivedCategoryName && c.pid == 0);
     const ch = channels.find(c => c.cid == ticket.channel_id);
 
     if (archivedCategory && ch) {
-      await this.ts6.editChannel(ticket.channel_id, {
+      await this.ts3.editChannel(ticket.channel_id, {
         cpid: archivedCategory.cid,
         channel_name: `🔒 ${ticket.creator_name}`.substring(0, 40),
         channel_topic: `Closed by ${client.client_nickname} · ${reason || 'No reason'}`
       });
-      await this.ts6.setChannelPerm(ticket.channel_id, 'i_channel_needed_join_power', 100);
+      await this.ts3.setChannelPerm(ticket.channel_id, 'i_channel_needed_join_power', 100);
     }
 
     const staffChat = channels.find(c => c.channel_name === CONFIG.staffChatChannelName);
     if (staffChat) {
-      await this.ts6.sendChannelMessage(staffChat.cid,
+      await this.ts3.sendChannelMessage(staffChat.cid,
         `Ticket #${ticket.id} (${ticket.creator_name}) closed by ${client.client_nickname}. ${reason ? 'Reason: ' + reason : ''}`
       );
     }
 
     if (!isCreator) {
       try {
-        const clients = await this.ts6.getClients();
+        const clients = await this.ts3.getClients();
         const creator = clients.find(c => c.client_unique_identifier === ticket.creator_uid);
         if (creator) {
           await this._pm(creator.clid, `Your ticket #${ticket.id} has been closed. ${reason ? 'Reason: ' + reason : ''}`);
@@ -325,7 +327,7 @@ class SupportBot {
   }
 
   async _handleTransferTicket(client, ticket, targetName) {
-    const clients = await this.ts6.getClients();
+    const clients = await this.ts3.getClients();
     const target = clients.find(c =>
       c.client_nickname.toLowerCase() === targetName.toLowerCase() &&
       c.clid !== client.clid
@@ -336,23 +338,23 @@ class SupportBot {
     if (!isTargetStaff) return this._pm(client.clid, 'Target user is not staff.');
 
     this.db.claimTicket(ticket.id, target.cldbid, target.client_nickname);
-    await this.ts6.sendChannelMessage(ticket.channel_id, `🔄 Ticket reassigned to ${target.client_nickname}.`);
+    await this.ts3.sendChannelMessage(ticket.channel_id, `🔄 Ticket reassigned to ${target.client_nickname}.`);
     await this._pm(target.clid, `Ticket #${ticket.id} assigned to you by ${client.client_nickname}.`);
     console.log(`[SupportBot] Ticket #${ticket.id} transferred to ${target.client_nickname}`);
   }
 
   async _handleBlockUser(client, targetName, reason) {
-    const clients = await this.ts6.getClients();
+    const clients = await this.ts3.getClients();
     const target = clients.find(c =>
       c.client_nickname.toLowerCase() === targetName.toLowerCase()
     );
     if (!target) return this._pm(client.clid, 'User not found.');
 
     this.db.blockUser(target.cldbid, target.client_unique_identifier, reason, client.cldbid);
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const logsCh = channels.find(c => c.channel_name === CONFIG.staffLogsChannelName);
     if (logsCh) {
-      await this.ts6.sendChannelMessage(logsCh.cid,
+      await this.ts3.sendChannelMessage(logsCh.cid,
         `🔨 ${client.client_nickname} blocked ${target.client_nickname} from creating tickets. Reason: ${reason}`
       );
     }
@@ -363,17 +365,17 @@ class SupportBot {
     this.db.closeTicket(ticket.id, 0, reason);
     await this._writeTranscript(ticket);
 
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const archivedCategory = channels.find(c => c.channel_name === CONFIG.archivedCategoryName && c.pid == 0);
     const ch = channels.find(c => c.cid == ticket.channel_id);
 
     if (archivedCategory && ch) {
-      await this.ts6.editChannel(ticket.channel_id, {
+      await this.ts3.editChannel(ticket.channel_id, {
         cpid: archivedCategory.cid,
         channel_name: `🔒 ${ticket.creator_name}`.substring(0, 40),
         channel_topic: `Auto-closed · ${reason}`
       });
-      await this.ts6.setChannelPerm(ticket.channel_id, 'i_channel_needed_join_power', 100);
+      await this.ts3.setChannelPerm(ticket.channel_id, 'i_channel_needed_join_power', 100);
     }
 
     console.log(`[SupportBot] Ticket #${ticket.id} auto-closed: ${reason}`);
@@ -382,10 +384,10 @@ class SupportBot {
   async _notifyStaffUnclaimed(ticket) {
     if (this._unclaimedNotified.has(ticket.id)) return;
     this._unclaimedNotified.add(ticket.id);
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const staffChat = channels.find(c => c.channel_name === CONFIG.staffChatChannelName);
     if (staffChat) {
-      await this.ts6.sendChannelMessage(staffChat.cid,
+      await this.ts3.sendChannelMessage(staffChat.cid,
         `⚠️ Ticket #${ticket.id} (${ticket.creator_name}) unclaimed for ${CONFIG.slaWarningMinutes} min. Please claim.`
       );
     }
@@ -393,12 +395,12 @@ class SupportBot {
   }
 
   async _notifyStaffNewMessage(ticket, client) {
-    const channels = await this.ts6.getChannels();
+    const channels = await this.ts3.getChannels();
     const staffChat = channels.find(c => c.channel_name === CONFIG.staffChatChannelName);
     if (staffChat) {
       const ticketCh = channels.find(c => c.cid == ticket.channel_id);
       const chName = ticketCh ? ticketCh.channel_name : `#${ticket.id}`;
-      await this.ts6.sendChannelMessage(staffChat.cid,
+      await this.ts3.sendChannelMessage(staffChat.cid,
         `💬 New message from ${client.client_nickname} in ${chName}`
       );
     }
@@ -444,10 +446,10 @@ class SupportBot {
   async _isStaff(client) {
     if (!CONFIG.supportGroupCheck) return true;
     try {
-      const clients = await this.ts6.getClients();
+      const clients = await this.ts3.getClients();
       const fullClient = clients.find(c => c.clid == client.clid);
       if (!fullClient) return false;
-      const serverGroups = await this.ts6.getServerGroups();
+      const serverGroups = await this.ts3.getServerGroups();
       const clientGroups = Array.isArray(serverGroups) ? serverGroups.filter(g => g.cldbid == client.cldbid) : [];
       return CONFIG.supportRoleNames.some(roleName =>
         clientGroups.some(g => g.name.toLowerCase().includes(roleName.toLowerCase()))
@@ -456,7 +458,7 @@ class SupportBot {
   }
 
   async _pm(clientId, message) {
-    try { await this.ts6.sendPrivateMessage(clientId, message); } catch {}
+    try { await this.ts3.sendPrivateMessage(clientId, message); } catch {}
   }
 
   getTicketDB() {
