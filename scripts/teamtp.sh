@@ -153,12 +153,22 @@ cmd_panel() {
   [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
 
   echo ""
-  echo -e "  ${BOLD}Panel Access${NC}"
+  echo -e "  ${BOLD}Server Access${NC}"
   echo ""
-  printf "  %-14s http://localhost:%s\n" "Local:" "${PORT_PANEL:-3000}"
-  printf "  %-14s %s://%s\n" "External:" "$proto" "$ip"
+
+  local voice_addr
+  if [[ -n "${VOICE_DOMAIN:-}" ]]; then
+    voice_addr="${VOICE_DOMAIN}:${PORT_VOICE:-9987}"
+  else
+    voice_addr="${ip}:${PORT_VOICE:-9987}"
+  fi
+  printf "  %-14s %s\n" "Voice:" "$voice_addr"
+
+  printf "  %-14s http://localhost:%s\n" "Panel:" "${PORT_PANEL:-3000}"
   if [[ -n "${WIZARD_DOMAIN:-}" ]]; then
-    printf "  %-14s %s://%s\n" "Domain:" "$proto" "$WIZARD_DOMAIN"
+    printf "  %-14s %s://%s\n" "Panel URL:" "$proto" "$WIZARD_DOMAIN"
+  else
+    printf "  %-14s %s://%s\n" "Panel URL:" "$proto" "$ip"
   fi
 
   if [[ "${WIZARD_SSL:-}" == "self-signed" ]]; then

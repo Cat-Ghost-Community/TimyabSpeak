@@ -218,7 +218,8 @@ show_help() {
   echo "  --version          Show version"
   echo ""
   echo "Environment variables (for --non-interactive):"
-  echo "  TEAMTP_DOMAIN         Domain name (empty for IP-only)"
+  echo "  TEAMTP_DOMAIN         Domain for web panel (empty for IP-only)"
+  echo "  TEAMTP_VOICE_DOMAIN   Domain for TS3 client connection (empty for IP)"
   echo "  TEAMTP_SSL            letsencrypt | self-signed | none"
   echo "  TEAMTP_SERVER_NAME    Server display name"
   echo "  TEAMTP_ADMIN_USER     Admin username"
@@ -364,6 +365,7 @@ wizard() {
   if $env_mode; then
     WIZARD_DOMAIN="${TEAMTP_DOMAIN:-}"
     WIZARD_SSL="${TEAMTP_SSL:-none}"
+    WIZARD_VOICE_DOMAIN="${TEAMTP_VOICE_DOMAIN:-}"
     WIZARD_SERVER_NAME="${TEAMTP_SERVER_NAME:-My Community}"
     WIZARD_ADMIN_USER="${TEAMTP_ADMIN_USER:-admin}"
     WIZARD_ADMIN_PASS="${TEAMTP_ADMIN_PASS:-teamtp123}"
@@ -376,15 +378,15 @@ wizard() {
     printf "  ${DIM}Press Enter to accept [defaults], Ctrl+C to cancel${NC}\n"
     echo ""
 
-    # Domain
+    # Domain (for web panel SSL)
     local ans
-    printf "  Domain name (leave empty for IP-only): " >/dev/tty
+    printf "  Domain for web panel (leave empty for IP-only): " >/dev/tty
     read -r ans </dev/tty || true
     WIZARD_DOMAIN="${ans// /}"
 
     # SSL
     if [[ -n "$WIZARD_DOMAIN" ]]; then
-      printf "  ${ARW} %s\n" "$WIZARD_DOMAIN"
+      printf "  ${ARW} Panel: %s\n" "$WIZARD_DOMAIN"
       if _yn "  Enable Let's Encrypt SSL?"; then
         WIZARD_SSL="letsencrypt"
       elif _yn "  Use self-signed certificate?"; then
@@ -394,12 +396,23 @@ wizard() {
       fi
     else
       WIZARD_DOMAIN=""
-      printf "  ${ARW} Using IP address\n"
+      printf "  ${ARW} Panel: IP-only\n"
       if _yn "  Enable self-signed HTTPS?"; then
         WIZARD_SSL="self-signed"
       else
         WIZARD_SSL="none"
       fi
+    fi
+    echo ""
+
+    # Voice domain (for TeamSpeak client connection)
+    printf "  Voice domain (for TS3 client, leave empty for IP): " >/dev/tty
+    read -r ans </dev/tty || true
+    WIZARD_VOICE_DOMAIN="${ans// /}"
+    if [[ -n "$WIZARD_VOICE_DOMAIN" ]]; then
+      printf "  ${ARW} Voice: %s\n" "$WIZARD_VOICE_DOMAIN"
+    else
+      printf "  ${ARW} Voice: IP-only\n"
     fi
     echo ""
 
@@ -698,6 +711,7 @@ try {
       printf 'PANEL_ADMIN_HASH=%s\n' "$PANEL_BCRYPT_HASH"
       printf 'WIZARD_DOMAIN=%s\n' "${WIZARD_DOMAIN:-}"
       printf 'WIZARD_SSL=%s\n' "${WIZARD_SSL:-none}"
+      printf 'VOICE_DOMAIN=%s\n' "${WIZARD_VOICE_DOMAIN:-}"
       printf 'WIZARD_SERVER_NAME=%s\n' "$WIZARD_SERVER_NAME"
       printf 'WIZARD_SLOTS=%s\n' "$WIZARD_SLOTS"
       printf 'TEAMTP_VERSION=%s\n' "$INSTALL_VERSION"
@@ -1441,6 +1455,13 @@ print_summary() {
   local ip
   ip=$(hostname -I 2>/dev/null | awk '{print $1}') || ip="<server-ip>"
 
+  local voice_addr
+  if [[ -n "${WIZARD_VOICE_DOMAIN:-}" ]]; then
+    voice_addr="${WIZARD_VOICE_DOMAIN}:${PORT_VOICE}"
+  else
+    voice_addr="${ip}:${PORT_VOICE}"
+  fi
+
   local proto="http"
   [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
 
@@ -1454,7 +1475,7 @@ print_summary() {
   echo -e "  ${BOLD}${GREEN}║${NC}                                                          ${BOLD}${GREEN}║${NC}"
   echo -e "  ${BOLD}${GREEN}║${NC}  ${BOLD}Installation Complete!${NC}                                  ${BOLD}${GREEN}║${NC}"
   echo -e "  ${BOLD}${GREEN}║${NC}                                                          ${BOLD}${GREEN}║${NC}"
-  printf "  ${BOLD}${GREEN}║${NC}  %-18s ${BOLD}%-35s${NC} ${BOLD}${GREEN}║${NC}\n" "Voice Server" "${ip}:${PORT_VOICE}"
+  printf "  ${BOLD}${GREEN}║${NC}  %-18s ${BOLD}%-35s${NC} ${BOLD}${GREEN}║${NC}\n" "Voice Server" "$voice_addr"
   if [[ -n "$panel_url" ]]; then
     printf "  ${BOLD}${GREEN}║${NC}  %-18s ${BOLD}%-35s${NC} ${BOLD}${GREEN}║${NC}\n" "Panel" "$panel_url"
   fi
