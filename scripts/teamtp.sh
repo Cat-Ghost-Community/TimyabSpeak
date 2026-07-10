@@ -148,13 +148,11 @@ cmd_bot() {
 cmd_panel() {
   load_env
 
-  local ip proto="http"
+  local ip
   ip=$(hostname -I 2>/dev/null | awk '{print $1}') || ip="<server-ip>"
-  [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
 
-  echo ""
-  echo -e "  ${BOLD}Server Access${NC}"
-  echo ""
+  local proto="http"
+  [[ "${WIZARD_SSL:-}" =~ ^(letsencrypt|self-signed)$ ]] && proto="https"
 
   local voice_addr
   if [[ -n "${VOICE_DOMAIN:-}" ]]; then
@@ -162,20 +160,50 @@ cmd_panel() {
   else
     voice_addr="${ip}:${PORT_VOICE:-9987}"
   fi
-  printf "  %-14s %s\n" "Voice:" "$voice_addr"
 
-  printf "  %-14s http://localhost:%s\n" "Panel:" "${PORT_PANEL:-3000}"
+  local panel_url
   if [[ -n "${WIZARD_DOMAIN:-}" ]]; then
-    printf "  %-14s %s://%s\n" "Panel URL:" "$proto" "$WIZARD_DOMAIN"
+    panel_url="${proto}://${WIZARD_DOMAIN}"
   else
-    printf "  %-14s %s://%s\n" "Panel URL:" "$proto" "$ip"
+    panel_url="${proto}://${ip}"
   fi
 
-  if [[ "${WIZARD_SSL:-}" == "self-signed" ]]; then
-    echo ""
-    warn "Self-signed certificate — browsers will show a security warning."
-  fi
+  local ssl_label="${WIZARD_SSL:-none}"
+  [[ "$ssl_label" == "letsencrypt" ]] && ssl_label="Let's Encrypt"
+  [[ "$ssl_label" == "self-signed" ]] && ssl_label="Self-signed"
 
+  echo ""
+  echo -e "  ${BOLD}═════ TimyabSpeak Dashboard ═════${NC}"
+  echo ""
+
+  printf "  %-16s ${BOLD}%s${NC}\n" "Voice Server:" "$voice_addr"
+  printf "  %-16s ${BOLD}%s${NC}\n" "Web Panel:" "$panel_url"
+  printf "  %-16s %s\n" "Local Panel:" "http://localhost:${PORT_PANEL:-3000}"
+  echo ""
+
+  printf "  %-16s %s\n" "Server Name:" "${WIZARD_SERVER_NAME:-?}"
+  printf "  %-16s %s\n" "Max Slots:" "${WIZARD_SLOTS:-?}"
+  printf "  %-16s %s\n" "SSL:" "$ssl_label"
+  printf "  %-16s %s\n" "Admin:" "${PANEL_ADMIN_USER:-?}"
+  echo ""
+
+  echo -e "  ${BOLD}───── Services ─────${NC}"
+
+  local svcs=(teamspeak3 teamtp-panel teamtp-level-bot teamtp-temp-bot teamtp-support-bot)
+  for s in "${svcs[@]}"; do
+    local state status_color
+    state=$(systemctl is-active "$s" 2>/dev/null || echo "inactive")
+    case "$state" in
+      active) status_color="${GREEN}active${NC}" ;;
+      *)      status_color="${RED}${state}${NC}" ;;
+    esac
+    printf "  %-25s %b\n" "$s" "$status_color"
+  done
+
+  local ver
+  ver="$(grep TEAMTP_VERSION "$ENV_FILE" 2>/dev/null | cut -d= -f2 || echo "?")"
+  echo ""
+  echo -e "  ${DIM}Version: ${ver}  |  Config: ${ENV_FILE}${NC}"
   echo ""
 }
 
@@ -401,7 +429,7 @@ cmd_help() {
   printf "  %-32s %s\n" "status"       "Show all services status"
   printf "  %-32s %s\n" "restart"      "Restart all services"
   printf "  %-32s %s\n" "bot <n> <a>"  "Control bot (level|temp|support) (on|off|restart|status)"
-  printf "  %-32s %s\n" "panel"        "Show web panel access URLs"
+  printf "  %-32s %s\n" "panel"        "Dashboard: voice/panel URLs, config, services"
   printf "  %-32s %s\n" "ssl"          "Renew Let's Encrypt certificates"
   printf "  %-32s %s\n" "backup"       "Create backup (30-day retention)"
   printf "  %-32s %s\n" "update"       "Pre-backup → git pull → npm ci → restart"
